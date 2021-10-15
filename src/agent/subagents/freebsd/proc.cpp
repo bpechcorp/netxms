@@ -102,7 +102,7 @@ static bool MatchProcess(kvm_t *kd, struct kinfo_proc *p, bool extMatch, const c
             return false;
 
       //User filter
-      if (cmdLine != nullptr && *cmdLine != 0)
+      if (userName != nullptr && *userName != 0)
       {
          passwd resultbuf;
          char buffer[512];
@@ -112,7 +112,7 @@ static bool MatchProcess(kvm_t *kd, struct kinfo_proc *p, bool extMatch, const c
             return false;
       }
       //Cmd line filter
-      if (cmdLineFilter != nullptr && *cmdLineFilter != 0)
+      if (cmdLine != nullptr && *cmdLine != 0)
       {
          char processCmdLine[32768];
          BuildProcessCommandLine(kd, p, processCmdLine, sizeof(processCmdLine));

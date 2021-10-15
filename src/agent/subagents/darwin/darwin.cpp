@@ -46,6 +46,12 @@ static void SubAgentShutdown()
 }
 
 /**
+ * Externals
+ */
+LONG H_HandleCount(const TCHAR *param, const TCHAR *arg, TCHAR *value, AbstractCommSession *session);
+LONG H_OpenFilesTable(const TCHAR *cmd, const TCHAR *arg, Table *value, AbstractCommSession *session);
+
+/**
  * List of parameters
  */
 static NETXMS_SUBAGENT_PARAM m_parameters[] =
@@ -70,6 +76,8 @@ static NETXMS_SUBAGENT_PARAM m_parameters[] =
    { _T("Hardware.System.Product"),      H_HardwareProduct,      NULL, DCI_DT_STRING, DCIDESC_HARDWARE_SYSTEM_PRODUCT },
    { _T("Hardware.System.SerialNumber"), H_HardwareSerialNumber, NULL, DCI_DT_STRING, DCIDESC_HARDWARE_SYSTEM_SERIALNUMBER },
 
+   { _T("System.ProcessCount"),          H_ProcessCount,    _T("S"),			DCI_DT_UINT,	DCIDESC_SYSTEM_PROCESSCOUNT },
+	{ _T("System.ThreadCount"),           H_ProcessCount,    _T("T"),			DCI_DT_UINT,	DCIDESC_SYSTEM_THREADCOUNT },
    { _T("System.Uname"),                 H_Uname,           NULL, DCI_DT_STRING, DCIDESC_SYSTEM_UNAME },
    { _T("System.Uptime"),                H_Uptime,          NULL, DCI_DT_UINT, DCIDESC_SYSTEM_UPTIME },
    { _T("System.Hostname"),              H_Hostname,        NULL, DCI_DT_FLOAT, DCIDESC_SYSTEM_HOSTNAME },
@@ -155,6 +163,13 @@ static NETXMS_SUBAGENT_PARAM m_parameters[] =
    { _T("Net.IP6.Forwarding"),           H_NetIpForwarding, (const TCHAR *)6, DCI_DT_INT, DCIDESC_NET_IP6_FORWARDING },
    { _T("Net.Interface.Link(*)"),        H_NetIfLink,       NULL, DCI_DT_DEPRECATED, DCIDESC_DEPRECATED },
    { _T("Net.Interface.OperStatus(*)"),  H_NetIfLink,       NULL, DCI_DT_INT, DCIDESC_NET_INTERFACE_OPERSTATUS },
+
+   { _T("Process.Count(*)"), H_ProcessCount, _T("P"), DCI_DT_UINT, DCIDESC_PROCESS_COUNT },
+   { _T("Process.CountEx(*)"), H_ProcessCount, _T("E"), DCI_DT_UINT, DCIDESC_PROCESS_COUNTEX },
+   { _T("Process.CPUTime(*)"), H_ProcessDetails, CAST_TO_POINTER(PROCINFO_CPUTIME, const TCHAR *), DCI_DT_INT64, DCIDESC_PROCESS_CPUTIME },
+   { _T("Process.Threads(*)"), H_ProcessDetails, CAST_TO_POINTER(PROCINFO_THREADS, const TCHAR *), DCI_DT_INT64, DCIDESC_PROCESS_THREADS },
+   { _T("Process.VMSize(*)"), H_ProcessDetails, CAST_TO_POINTER(PROCINFO_VMSIZE, const TCHAR *), DCI_DT_INT64, DCIDESC_PROCESS_VMSIZE },
+   { _T("Process.WkSet(*)"), H_ProcessDetails, CAST_TO_POINTER(PROCINFO_WKSET, const TCHAR *), DCI_DT_INT64, DCIDESC_PROCESS_WKSET },
 };
 
 static NETXMS_SUBAGENT_LIST m_enums[] =
@@ -163,11 +178,14 @@ static NETXMS_SUBAGENT_LIST m_enums[] =
    { _T("Net.InterfaceList"),            H_NetIfList,       NULL },
    { _T("Net.IP.RoutingTable"),          H_NetRoutingTable, NULL },
    { _T("FileSystem.MountPoints"),       H_MountPoints,     NULL },
+   { _T("System.ProcessList"),           H_ProcessList,     NULL },
 };
 
 static NETXMS_SUBAGENT_TABLE m_tables[] =
 {
    { _T("FileSystem.Volumes"), H_FileSystems, NULL, _T("VOLUME"), DCTDESC_FILESYSTEM_VOLUMES },
+   { _T("System.OpenFiles"), H_OpenFilesTable, NULL, _T("PID,HANDLE"), DCTDESC_SYSTEM_OPEN_FILES },
+   { _T("System.Processes"), H_ProcessTable, NULL, _T("PID"), DCTDESC_SYSTEM_PROCESSES }
 };
 
 static NETXMS_SUBAGENT_INFO m_info =

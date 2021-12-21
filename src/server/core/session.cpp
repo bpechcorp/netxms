@@ -10148,7 +10148,7 @@ void ClientSession::queryL2Topology(const NXCPMessage& request)
 			   shared_ptr<NetworkMapObjectList> topology = static_cast<Node&>(*object).getL2Topology();
 				if (topology == nullptr)
 				{
-				   topology = static_cast<Node&>(*object).buildL2Topology(&rcc, -1, true);
+				   topology = static_cast<Node&>(*object).buildL2Topology(&rcc, -1, true, true);
 				}
 				else
 				{

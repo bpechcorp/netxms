@@ -215,6 +215,7 @@
 #define NC_IS_MODBUS_TCP          0x01000000
 #define NC_IS_PROFINET            0x02000000
 #define NC_HAS_FILE_MANAGER       0x04000000
+#define NC_IS_SSH                 0x08000000
 
 /**
  * Flag separator
@@ -238,6 +239,7 @@
 #define NF_DISABLE_ETHERNET_IP         0x08000000
 #define NF_DISABLE_PERF_COUNT          0x10000000
 #define NF_DISABLE_8021X_STATUS_POLL   0x20000000
+#define NF_DISABLE_SSH                 0x40000000
 
 /**
  * Subnet flags
@@ -289,6 +291,7 @@
 #define NSF_CACHE_MODE_NOT_SUPPORTED   0x00080000
 #define NSF_SNMP_TRAP_FLOOD            0x00100000
 #define NSF_ICMP_UNREACHABLE           0x00200000
+#define NSF_SSH_UNREACHABLE            0x00400000
 
 /**
  * Sensor state flags

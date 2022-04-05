@@ -413,6 +413,7 @@ CREATE TABLE nodes
   capabilities integer null,
   fail_time_snmp integer not null,
   fail_time_agent integer not null,
+  fail_time_ssh integer not null,
   icmp_poll_mode char(1) not null,
   chassis_placement_config varchar(2000) null,
   vendor varchar(127) null,
@@ -2528,4 +2529,17 @@ CREATE TABLE maintenance_journal
    creation_time integer not null,
    modification_time integer not null,
    PRIMARY KEY(record_id)
+) TABLE_TYPE;
+
+/**
+ * SSH credentials
+ */
+CREATE TABLE ssh_credentials
+(
+   id integer not null,
+   login varchar(63) null,
+   password varchar(63) null,
+   key_id integer not null,
+   zone integer not null,
+   PRIMARY KEY(id)
 ) TABLE_TYPE;

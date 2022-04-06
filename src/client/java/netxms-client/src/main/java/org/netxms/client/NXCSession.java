@@ -13176,7 +13176,7 @@ public class NXCSession
       List<SshCredentials> credentials = new ArrayList<SshCredentials>(count);
       long base = NXCPCodes.VID_ELEMENT_LIST_BASE;
 
-      for(int i = 0; i < count; i++, base += 5)
+      for(int i = 0; i < count; i++, base += 10)
          credentials.add(new SshCredentials(response, base));
 
       return credentials;

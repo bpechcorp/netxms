@@ -3311,6 +3311,7 @@ public:
    }
 
    bool isSNMPSupported() const { return m_capabilities & NC_IS_SNMP ? true : false; }
+   bool isSSHSupported() const { return m_capabilities & NC_IS_SSH ? true : false; }
    bool isNativeAgent() const { return m_capabilities & NC_IS_NATIVE_AGENT ? true : false; }
    bool isEthernetIPSupported() const { return m_capabilities & NC_IS_ETHERNET_IP ? true : false; }
    bool isModbusTCPSupported() const { return m_capabilities & NC_IS_MODBUS_TCP ? true : false; }

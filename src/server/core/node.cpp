@@ -5417,13 +5417,13 @@ bool Node::confPollSsh(uint32_t rqId)
    if (!result)
    {
       IntegerArray<uint16_t> ports = GetWellKnownPorts(_T("ssh"), getZoneUIN());
-      unique_ptr<StructArray<SshCredentials>> credentials = GetSshCredentialsGlobal(getZoneUIN());
+      StructArray<SshCredentials> credentials = GetSshCredentials(getZoneUIN());
       bool breakFlag = false;
       for (int i = 0; i < ports.size() && !breakFlag; i++)
       {
-         for (int j = 0; j < credentials->size(); j++)
+         for (int j = 0; j < credentials.size(); j++)
          {
-            SshCredentials *crd = credentials->get(j);
+            SshCredentials* crd = credentials.get(j);
             result = checkSshConnection(crd->login, crd->password,
                                         crd->keyId, ports.get(i));
             if (result)

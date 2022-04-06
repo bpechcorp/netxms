@@ -1951,6 +1951,10 @@ NXSL_Value *NXSL_NodeClass::getAttr(NXSL_Object *object, const NXSL_Identifier& 
    {
       value = vm->createValue(node->isSNMPSupported());
    }
+   else if (NXSL_COMPARE_ATTRIBUTE_NAME("isSSH"))
+   {
+      value = vm->createValue(node->isSSHSupported());
+   }
    else if (NXSL_COMPARE_ATTRIBUTE_NAME("isSONMP") || NXSL_COMPARE_ATTRIBUTE_NAME("isNDP"))
    {
       value = vm->createValue((node->getCapabilities() & NC_IS_NDP) != 0);

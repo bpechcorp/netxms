@@ -10496,7 +10496,7 @@ void ClientSession::sendNetworkCredList(const NXCPMessage& request)
                   GetZoneAgentSecretList(&response, zoneUIN);
                   break;
                case CMD_GET_SSH_CREDENTIALS:
-                  GetSshCredentialsMessage(&response, _T('Z'), zoneUIN);
+                  GetSshCredentialsMessage(&response, zoneUIN);
                   break;
             }
          }
@@ -10531,7 +10531,7 @@ void ClientSession::sendNetworkCredList(const NXCPMessage& request)
                GetFullAgentSecretList(&response);
                break;
             case CMD_GET_SSH_CREDENTIALS:
-               GetSshCredentialsMessage(&response, _T('A'), 0);
+               GetSshCredentialsMessage(&response, -2);
                break;
          }
       }

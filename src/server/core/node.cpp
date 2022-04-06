@@ -5417,7 +5417,7 @@ bool Node::confPollSsh(uint32_t rqId)
    if (!result)
    {
       IntegerArray<uint16_t> ports = GetWellKnownPorts(_T("ssh"), getZoneUIN());
-      unique_ptr<StructArray<SshCredentials>> credentials = GetSshCredentials(getZoneUIN());
+      unique_ptr<StructArray<SshCredentials>> credentials = GetSshCredentialsGlobal(getZoneUIN());
       bool breakFlag = false;
       for (int i = 0; i < ports.size() && !breakFlag; i++)
       {

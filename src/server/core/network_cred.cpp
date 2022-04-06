@@ -412,7 +412,7 @@ void GetZoneAgentSecretList(NXCPMessage *msg, int32_t zoneUIN)
  */
 StructArray<SshCredentials> GetSshCredentials(int32_t zoneUIN)
 {
-   StructArray<SshCredentials>* credentials = new StructArray<SshCredentials>();
+   StructArray<SshCredentials> credentials;
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
    DB_STATEMENT hStmt = DBPrepare(hdb, _T("SELECT login, password, key_id, FROM ssh_credentials WHERE (zone=? OR zone=-1) ORDER BY zone DESC, id ASC"));
    if (hStmt != nullptr)
@@ -428,7 +428,7 @@ StructArray<SshCredentials> GetSshCredentials(int32_t zoneUIN)
             DBGetField(hResult, i, 0, crd.login, MAX_SSH_LOGIN_LEN);
             DBGetField(hResult, i, 1, crd.password, MAX_SSH_PASSWORD_LEN);
             crd.keyId = DBGetFieldLong(hResult, i, 2);
-            credentials->add(crd);
+            credentials.add(crd);
          }
          DBFreeResult(hResult);
       }
@@ -443,7 +443,6 @@ StructArray<SshCredentials> GetSshCredentials(int32_t zoneUIN)
  */
 void GetSshCredentialsMessage(NXCPMessage* msg, int32_t zoneUIN)
 {
-   StructArray<SshCredentials>* credentials = new StructArray<SshCredentials>();
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
    DB_STATEMENT hStmt;
    if (zoneUIN != -2)
@@ -474,6 +473,7 @@ void GetSshCredentialsMessage(NXCPMessage* msg, int32_t zoneUIN)
                msg->setField(base + 3, DBGetFieldLong(hResult, i, 3)); // zone
          }
          DBFreeResult(hResult);
+         msg->setField(VID_RCC, RCC_SUCCESS);
       }
       else
       {
@@ -483,9 +483,7 @@ void GetSshCredentialsMessage(NXCPMessage* msg, int32_t zoneUIN)
    }
    else
    {
-      msg->setField(VID_RCC, RCC_INTERNAL_ERROR);
+      msg->setField(VID_RCC, RCC_DB_FAILURE);
    }
    DBConnectionPoolReleaseConnection(hdb);
-
-   msg->setField(VID_RCC, RCC_SUCCESS);
 }

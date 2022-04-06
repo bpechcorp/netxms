@@ -13153,4 +13153,32 @@ public class NXCSession
       sendMessage(msg);
       waitForRCC(msg.getMessageId());
    }
+
+   /**
+    * Get SSH credentials for specified zone
+    * 
+    * @param objectId journal owner object ID
+    * @param entryId journal entry ID
+    * @param description journal entry description
+    * @return list of SSH credentials
+    * @throws IOException if socket I/O error occurs
+    * @throws NXCException if NetXMS server returns an error or operation was timed out
+    */
+   public List<SshCredentials> getSshCredentials(int zoneUIN) throws IOException, NXCException
+   {
+      final NXCPMessage msg = newMessage(NXCPCodes.CMD_GET_SSH_CREDENTIALS);
+      msg.setFieldInt32(NXCPCodes.VID_ZONE_UIN, (int)zoneUIN);
+      sendMessage(msg);
+
+      NXCPMessage response = waitForRCC(msg.getMessageId());
+
+      int count = response.getFieldAsInt32(NXCPCodes.VID_NUM_ELEMENTS);
+      List<SshCredentials> credentials = new ArrayList<SshCredentials>(count);
+      long base = NXCPCodes.VID_ELEMENT_LIST_BASE;
+
+      for(int i = 0; i < count; i++, base += 5)
+         credentials.add(new SshCredentials(response, base));
+
+      return credentials;
+   }
 }

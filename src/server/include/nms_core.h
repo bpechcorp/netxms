@@ -1370,6 +1370,7 @@ void GetZoneAgentSecretList(NXCPMessage *msg, int32_t zoneUIN);
 unique_ptr<StructArray<SshCredentials>> GetSshCredentialsZone(int32_t zoneUIN);
 unique_ptr<StructArray<SshCredentials>> GetSshCredentialsGlobal(int32_t zoneUIN);
 unique_ptr<StructArray<SshCredentials>> GetSshCredentialsAll();
+void GetSshCredentialsMessage(NXCPMessage* msg, const TCHAR tag, int32_t zoneUIN);
 void FullWellKnownPortListToMessage(const TCHAR *tag, NXCPMessage *msg);
 void ZoneWellKnownPortListToMessage(const TCHAR *tag, int32_t zoneUIN, NXCPMessage *msg);
 uint32_t UpdateWellKnownPortList(const NXCPMessage& request, const TCHAR *tag, int32_t zoneUIN);

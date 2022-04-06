@@ -461,3 +461,35 @@ unique_ptr<StructArray<SshCredentials>> GetSshCredentialsAll()
    _sntprintf(select, 128, _T("SELECT login, password, key_id, id, zone FROM ssh_credentials ORDER BY zone DESC, id ASC"));
    return GetSshCredentialsCore(select);
 }
+
+/**
+ * Get list of SSH credentials into NXCP message
+ * @param tag specifies what credentials to get. Possible values are 'Z' for specific zone only, 'G' for specific zone + global cred, and 'A' for all zones
+ */
+void GetSshCredentialsMessage(NXCPMessage* msg, const TCHAR tag, int32_t zoneUIN)
+{
+   unique_ptr<StructArray<SshCredentials>> credentials = nullptr;
+   switch (tag)
+   {
+      case _T('Z'):
+         credentials = GetSshCredentialsZone(zoneUIN);
+         break;
+      case _T('G'):
+         credentials = GetSshCredentialsGlobal(zoneUIN);
+         break;
+      case _T('A'):
+         credentials = GetSshCredentialsAll();
+         break;
+   }
+
+   msg->setField(VID_NUM_ELEMENTS, credentials->size());
+   int base = VID_ELEMENT_LIST_BASE;
+   for (int i = 0; i < credentials->size(); i++, base += 5)
+   {
+      msg->setField(base, credentials->get(i)->login);
+      msg->setField(base + 1, credentials->get(i)->password);
+      msg->setField(base + 2, credentials->get(i)->keyId);
+   }
+
+   msg->setField(VID_RCC, RCC_SUCCESS);
+}

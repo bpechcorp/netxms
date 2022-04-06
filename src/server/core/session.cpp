@@ -1429,6 +1429,7 @@ void ClientSession::processRequest(NXCPMessage *request)
       case CMD_GET_USM_CREDENTIALS:
       case CMD_GET_WELL_KNOWN_PORT_LIST:
       case CMD_GET_SHARED_SECRET_LIST:
+      case CMD_GET_SSH_CREDENTIALS:
          sendNetworkCredList(*request);
          break;
       case CMD_UPDATE_COMMUNITY_LIST:
@@ -10470,8 +10471,8 @@ void ClientSession::sendNetworkCredList(const NXCPMessage& request)
 {
    NXCPMessage response(CMD_REQUEST_COMPLETED, request.getId());
 
-   int32_t zoneUIN = request.isFieldExist(VID_ZONE_UIN) ? request.getFieldAsInt32(VID_ZONE_UIN) : -1;
-   if (zoneUIN != -1) // specific zone
+   int32_t zoneUIN = request.isFieldExist(VID_ZONE_UIN) ? request.getFieldAsInt32(VID_ZONE_UIN) : -2;
+   if (zoneUIN != -2) // specific zone
    {
       shared_ptr<Zone> zone = FindZoneByUIN(zoneUIN);
       if (zone != nullptr)
@@ -10493,6 +10494,9 @@ void ClientSession::sendNetworkCredList(const NXCPMessage& request)
                   break;
                case CMD_GET_SHARED_SECRET_LIST:
                   GetZoneAgentSecretList(&response, zoneUIN);
+                  break;
+               case CMD_GET_SSH_CREDENTIALS:
+                  GetSshCredentialsMessage(&response, _T('Z'), zoneUIN);
                   break;
             }
          }
@@ -10525,6 +10529,9 @@ void ClientSession::sendNetworkCredList(const NXCPMessage& request)
                break;
             case CMD_GET_SHARED_SECRET_LIST:
                GetFullAgentSecretList(&response);
+               break;
+            case CMD_GET_SSH_CREDENTIALS:
+               GetSshCredentialsMessage(&response, _T('A'), 0);
                break;
          }
       }

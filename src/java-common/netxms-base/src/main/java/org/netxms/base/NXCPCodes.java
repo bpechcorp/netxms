@@ -469,6 +469,7 @@ public class NXCPCodes
 	public static final int CMD_READ_MAINTENANCE_JOURNAL = 0x01C4;
 	public static final int CMD_CREATE_MAINTENANCE_JOURNAL = 0x01C5;
 	public static final int CMD_EDIT_MAINTENANCE_JOURNAL = 0x01C6;
+   public static final int CMD_GET_SSH_CREDENTIALS = 0x01C7;
 
 	// CMD_RS_ - Reporting Server related codes
 	public static final int CMD_RS_LIST_REPORTS = 0x1100;

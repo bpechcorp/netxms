@@ -1166,6 +1166,16 @@ enum class ShutdownReason
 };
 
 /**
+ * Structure for SSH credentials
+ */
+struct SshCredentials
+{
+   TCHAR login[MAX_SSH_LOGIN_LEN];
+   TCHAR password[MAX_SSH_PASSWORD_LEN];
+   int keyId;
+};
+
+/**
  * Functions
  */
 void ConfigPreLoad();
@@ -1357,6 +1367,7 @@ void GetFullUsmCredentialList(NXCPMessage *msg);
 void GetZoneUsmCredentialList(NXCPMessage *msg, int32_t zoneUIN);
 void GetFullAgentSecretList(NXCPMessage *msg);
 void GetZoneAgentSecretList(NXCPMessage *msg, int32_t zoneUIN);
+unique_ptr<StructArray<SshCredentials>> GetSshCredentials(int32_t zoneUIN);
 void FullWellKnownPortListToMessage(const TCHAR *tag, NXCPMessage *msg);
 void ZoneWellKnownPortListToMessage(const TCHAR *tag, int32_t zoneUIN, NXCPMessage *msg);
 uint32_t UpdateWellKnownPortList(const NXCPMessage& request, const TCHAR *tag, int32_t zoneUIN);

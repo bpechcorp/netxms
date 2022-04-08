@@ -16386,17 +16386,15 @@ void ClientSession::editMaintJournal(const NXCPMessage& request)
  * Update list of well-known SSH credentials. Existing list will be replaced by provided one.
  *
  * Called by:
- * CMD_EDIT_MAINTENANCE_JOURNAL
+ * CMD_UPDATE_SSH_CREDENTIALS
  *
  * Expected input parameters:
- * VID_OBJECT_ID     Journal owner (source) ID
- * VID_RECORD_ID      Maintenance entry ID
- * VID_DESCRIPTION   Maintenance entry description
+ * VID_ZONE_UIN            Zone UIN (unique identification number)
+ * VID_NUM_RECORDS         Number of SSH credentials
+ * VID_ELEMENT_LIST_BASE   Base element of SSH credentials list
  *
  * Return values:
  * VID_RCC                          Request completion code
- *
- * NX_NOTIFY_MAINTENANCE_JOURNAL_CHANGED notification with source object ID is generated
  */
 void ClientSession::updateSshCredentials(const NXCPMessage& request)
 {

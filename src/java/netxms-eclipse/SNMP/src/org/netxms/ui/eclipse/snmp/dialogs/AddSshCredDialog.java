@@ -43,7 +43,7 @@ public class AddSshCredDialog extends Dialog
    private Combo key;
 
    private SshCredential cred;
-   List<SshKeyPair> keyList;
+   private List<SshKeyPair> keyList;
 			
 	/**
     * @param parentShell parent shell
@@ -64,7 +64,10 @@ public class AddSshCredDialog extends Dialog
 	protected void configureShell(Shell newShell)
 	{
 		super.configureShell(newShell);
-      newShell.setText("Add SSH credential");
+      if (cred == null)
+         newShell.setText("Add SSH credential");
+      else
+         newShell.setText("Edit SSH credential");
 	}
 
 	/* (non-Javadoc)
@@ -99,19 +102,21 @@ public class AddSshCredDialog extends Dialog
       key = WidgetHelper.createLabeledCombo(dialogArea, SWT.READ_ONLY, "SSH Key", WidgetHelper.DEFAULT_LAYOUT_DATA);
 
       int initialKeyIndex = 0;
+      key.add(" ");
       for(int i = 0; i < keyList.size(); i++)
       {
          key.add(keyList.get(i).getName());
          if (cred != null && keyList.get(i).getId() == cred.getKeyId())
-            initialKeyIndex = i;
+            initialKeyIndex = i + 1;
       }
 
       if (cred != null)
       {
          login.setText(cred.getLogin());
          password.setText(cred.getPassword());
-         key.select(initialKeyIndex);
       }
+
+      key.select(initialKeyIndex);
 
 		return dialogArea;
 	}
@@ -122,45 +127,33 @@ public class AddSshCredDialog extends Dialog
 	@Override
 	protected void okPressed()
 	{
-	   int keyId = -1;
-	   if(keyList != null)
-	      for(SshKeyPair kp : keyList)
-	      {
-            if (kp.getName().equals(key.getText()))
-	         {
-	            keyId = kp.getId();
-	            break;
-	         }
-	      }
-	   
-	   if(keyId != -1)
-	   {
-         if (login.getText() != null && !login.getText().trim().equals("") && password.getText() != null && !password.getText().trim().equals(""))
-         {
-            if (cred == null)
-            {
-               cred = new SshCredential(login.getText().trim(), password.getText().trim(), keyId);
-            }
-            else
-            {
-               cred.setLogin(login.getText().trim());
-               cred.setPassword(password.getText().trim());
-               cred.setKeyId(keyId);
-            }
-            super.okPressed();
-         }
-         else
-         {
-            MessageDialogHelper.openError(getShell(), "Error", "Please enter credentials.");
-            super.cancelPressed();
-         }
-	   }
-	   else
-	   {
-	      MessageDialogHelper.openError(getShell(), "Error", "SSH key not found.");
-	      super.cancelPressed();
-	   }
-	}
+      int index = key.getSelectionIndex();
+      int keyId = (index > 0) ? keyList.get(index - 1).getId() : 0;
+
+      if (login.getText().trim().equals(""))
+      {
+         MessageDialogHelper.openError(getShell(), "Error", "Please enter login.");
+         return;
+      }
+
+      if (password.getText().trim().equals("") && index == 0)
+      {
+         MessageDialogHelper.openError(getShell(), "Error", "Please enter password and/or key.");
+         return;
+      }
+
+      if (cred == null)
+      {
+         cred = new SshCredential(login.getText().trim(), password.getText().trim(), keyId);
+      }
+      else
+      {
+         cred.setLogin(login.getText().trim());
+         cred.setPassword(password.getText().trim());
+         cred.setKeyId(keyId);
+      }
+      super.okPressed();
+   }
 
 	/**
 	 * @return the value

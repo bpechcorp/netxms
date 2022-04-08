@@ -50,6 +50,7 @@ static bool H_UpgradeFromV10()
    CHK_EXEC(SQLQuery(_T("UPDATE nodes SET fail_time_ssh = 0")));
    CHK_EXEC(DBSetNotNullConstraint(g_dbHandle, _T("nodes"), _T("fail_time_ssh")));
 
+   CHK_EXEC(DBDropPrimaryKey(g_dbHandle, _T("well_known_ports")));
    CHK_EXEC(DBAddPrimaryKey(g_dbHandle, _T("well_known_ports"), _T("id,tag,zone")));
 
    CHK_EXEC(SetMinorSchemaVersion(11));

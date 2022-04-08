@@ -18,22 +18,24 @@ public class NetworkConfig
    public static int ALL_ZONES = -2;
 
    // Configuration type flags
-   public static int COMMUNITIES     = 0x01;
-   public static int USM             = 0x02;
-   public static int SNMP_PORTS      = 0x04;
-   public static int AGENT_SECRETS   = 0x08;
-   public static int AGENT_PORTS     = 0x10;
-   public static int SSH_CREDENTIALS = 0x20;
-   public static int SSH_PORTS       = 0x40;
-   public static int ALL_CONFIGS     = 0x7F; 
+   public static final int COMMUNITIES     = 0x01;
+   public static final int USM             = 0x02;
+   public static final int SNMP_PORTS      = 0x04;
+   public static final int AGENT_SECRETS   = 0x08;
+   public static final int AGENT_PORTS     = 0x10;
+   public static final int SSH_CREDENTIALS = 0x20;
+   public static final int SSH_PORTS       = 0x40;
+   public static final int ALL_CONFIGS     = 0x7F; 
 
    private Map<Integer, List<String>> communities = new HashMap<Integer, List<String>>();
    private Map<Integer, List<SnmpUsmCredential>> usmCredentials = new HashMap<Integer, List<SnmpUsmCredential>>();
-   private Map<Integer, List<Integer>> snmpPorts = new HashMap<Integer, List<Integer>>();
    private Map<Integer, List<String>> sharedSecrets = new HashMap<Integer, List<String>>();
-   private Map<Integer, List<Integer>> agentPorts = new HashMap<Integer, List<Integer>>();
    private Map<Integer, List<SshCredential>> sshCredentials = new HashMap<Integer, List<SshCredential>>();
+
+   private Map<Integer, List<Integer>> snmpPorts = new HashMap<Integer, List<Integer>>();
+   private Map<Integer, List<Integer>> agentPorts = new HashMap<Integer, List<Integer>>();
    private Map<Integer, List<Integer>> sshPorts = new HashMap<Integer, List<Integer>>();
+
    private NXCSession session;
    private Map<Integer, Integer> changedConfig = new HashMap<Integer, Integer>();
 
@@ -43,6 +45,36 @@ public class NetworkConfig
    public NetworkConfig(NXCSession session)
    {
       this.session = session;
+   }
+
+   private void setPorts(int type, Map<Integer, List<Integer>> ports)
+   {
+      switch(type)
+      {
+         case SNMP_PORTS:
+            snmpPorts = ports;
+            break;
+         case AGENT_PORTS:
+            agentPorts = ports;
+            break;
+         case SSH_PORTS:
+            sshPorts = ports;
+            break;
+      }
+   }
+   
+   private Map<Integer, List<Integer>> getPorts(int type)
+   {
+      switch(type)
+      {
+         case SNMP_PORTS:
+            return snmpPorts;
+         case AGENT_PORTS:
+            return agentPorts;
+         case SSH_PORTS:
+            return sshPorts;
+      }
+      return null;
    }
 
    /**
@@ -80,11 +112,11 @@ public class NetworkConfig
       {
          if (ALL_ZONES == zoneUIN)
          {
-            snmpPorts = session.getWellKnownPorts("snmp");
+            setPorts(SNMP_PORTS, session.getWellKnownPorts("snmp"));
          }
          else
          {
-            snmpPorts.put(zoneUIN, session.getWellKnownPorts(zoneUIN, "snmp"));
+            getPorts(SNMP_PORTS).put(zoneUIN, session.getWellKnownPorts(zoneUIN, "snmp"));
          }
       }
 
@@ -104,11 +136,11 @@ public class NetworkConfig
       {
          if (ALL_ZONES == zoneUIN)
          {
-            agentPorts = session.getWellKnownPorts("agent");
+            setPorts(AGENT_PORTS, session.getWellKnownPorts("agent"));
          }
          else
          {
-            agentPorts.put(zoneUIN, session.getWellKnownPorts(zoneUIN, "agent"));
+            getPorts(AGENT_PORTS).put(zoneUIN, session.getWellKnownPorts(zoneUIN, "agent"));
          }
       }
 
@@ -128,11 +160,11 @@ public class NetworkConfig
       {
          if (ALL_ZONES == zoneUIN)
          {
-            sshPorts = session.getWellKnownPorts("ssh");
+            setPorts(SSH_PORTS, session.getWellKnownPorts("ssh"));
          }
          else
          {
-            sshPorts.put(zoneUIN, session.getWellKnownPorts(zoneUIN, "ssh"));
+            getPorts(SSH_PORTS).put(zoneUIN, session.getWellKnownPorts(zoneUIN, "ssh"));
          }
       }
    }
@@ -166,7 +198,7 @@ public class NetworkConfig
       for (Entry<Integer, Integer> value : changedConfig.entrySet())
          if ((value.getValue() & SNMP_PORTS) > 0)
          {
-            session.updateWellKnownPorts(value.getKey(), "snmp", snmpPorts.get(value.getKey()));
+            session.updateWellKnownPorts(value.getKey(), "snmp", getPorts(SNMP_PORTS).get(value.getKey()));
          }
       
       for (Entry<Integer, Integer> value : changedConfig.entrySet())
@@ -178,7 +210,7 @@ public class NetworkConfig
       for(Entry<Integer, Integer> value : changedConfig.entrySet())
          if ((value.getValue() & AGENT_PORTS) > 0)
          {
-            session.updateWellKnownPorts(value.getKey(), "agent", agentPorts.get(value.getKey()));
+            session.updateWellKnownPorts(value.getKey(), "agent", getPorts(AGENT_PORTS).get(value.getKey()));
          }
 
       for(Entry<Integer, Integer> value : changedConfig.entrySet())
@@ -190,7 +222,7 @@ public class NetworkConfig
       for(Entry<Integer, Integer> value : changedConfig.entrySet())
          if ((value.getValue() & SSH_PORTS) > 0)
          {
-            session.updateWellKnownPorts(value.getKey(), "ssh", sshPorts.get(value.getKey()));
+            session.updateWellKnownPorts(value.getKey(), "ssh", getPorts(SSH_PORTS).get(value.getKey()));
          }
 
       changedConfig.clear();
@@ -236,26 +268,34 @@ public class NetworkConfig
 
    /**
     * @param zoneUIN the zone which ports to get
+    * @param type port type
     * @return the ports
     */
-   public List<Integer> getSnmpPorts(long zoneUIN)
+   public List<Integer> getPorts(int type, long zoneUIN)
    {
-      if (snmpPorts.containsKey((int)zoneUIN))
-         return snmpPorts.get((int)zoneUIN);
+      if (getPorts(type).containsKey((int)zoneUIN))
+         return getPorts(type).get((int)zoneUIN);
       else
          return new ArrayList<Integer>();
    }
 
    /**
-    * @param zoneUIN the zone which ports to get
-    * @return the ports
+    * @param port the port to set
+    * @param type port type
+    * @param zoneUIN the zone of the given port
     */
-   public List<Integer> getAgentPorts(long zoneUIN)
+   public void addPort(int type, Integer port, long zoneUIN)
    {
-      if (agentPorts.containsKey((int)zoneUIN))
-         return agentPorts.get((int)zoneUIN);
+      if (getPorts(type).containsKey((int)zoneUIN))
+      {
+         getPorts(type).get((int)zoneUIN).add(port);
+      }
       else
-         return new ArrayList<Integer>();
+      {
+         List<Integer> list = new ArrayList<Integer>();
+         list.add(port);
+         getPorts(type).put((int)zoneUIN, list);
+      }
    }
 
    /**
@@ -285,72 +325,6 @@ public class NetworkConfig
          List<SshCredential> list = new ArrayList<SshCredential>();
          list.add(credential);
          sshCredentials.put((int)zoneUIN, list);
-      }
-   }
-
-   /**
-    * @param zoneUIN the zone which ports to get
-    * @return the ports
-    */
-   public List<Integer> getSshPorts(long zoneUIN)
-   {
-      if (sshPorts.containsKey((int)zoneUIN))
-         return sshPorts.get((int)zoneUIN);
-      else
-         return new ArrayList<Integer>();
-   }
-
-   /**
-    * @param port the port to set
-    * @param zoneUIN the zone of the given port
-    */
-   public void addSnmpPort(Integer port, long zoneUIN)
-   {
-      if (this.snmpPorts.containsKey((int)zoneUIN))
-      {
-         this.snmpPorts.get((int)zoneUIN).add(port);
-      }
-      else
-      {
-         List<Integer> list = new ArrayList<Integer>();
-         list.add(port);
-         this.snmpPorts.put((int)zoneUIN, list);
-      }
-   }
-
-   /**
-    * @param port the port to set
-    * @param zoneUIN the zone of the given port
-    */
-   public void addAgentPort(Integer port, long zoneUIN)
-   {
-      if (this.agentPorts.containsKey((int)zoneUIN))
-      {
-         this.agentPorts.get((int)zoneUIN).add(port);
-      }
-      else
-      {
-         List<Integer> list = new ArrayList<Integer>();
-         list.add(port);
-         this.agentPorts.put((int)zoneUIN, list);
-      }
-   }
-
-   /**
-    * @param port the port to set
-    * @param zoneUIN the zone of the given port
-    */
-   public void addSshPort(Integer port, long zoneUIN)
-   {
-      if (this.sshPorts.containsKey((int)zoneUIN))
-      {
-         this.sshPorts.get((int)zoneUIN).add(port);
-      }
-      else
-      {
-         List<Integer> list = new ArrayList<Integer>();
-         list.add(port);
-         this.sshPorts.put((int)zoneUIN, list);
       }
    }
 

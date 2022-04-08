@@ -24,11 +24,21 @@ import org.netxms.base.NXCPMessage;
 /**
  * SSH credentials
  */
-public class SshCredentials
+public class SshCredential
 {
    private String login;
    private String password;
    private int keyId;
+
+   /**
+    * Create new SSH credentials object.
+    */
+   public SshCredential(String login, String password, int keyId)
+   {
+      this.login = login;
+      this.password = password;
+      this.keyId = keyId;
+   }
 
    /**
     * Create new SSH credentials object from NXCPMessage.
@@ -36,7 +46,7 @@ public class SshCredentials
     * @param msg message
     * @param base base field ID
     */
-   public SshCredentials(NXCPMessage msg, long base)
+   public SshCredential(NXCPMessage msg, long base)
    {
       login = msg.getFieldAsString(base);
       password = msg.getFieldAsString(base + 1);
@@ -65,5 +75,42 @@ public class SshCredentials
    public int getKeyId()
    {
       return keyId;
+   }
+
+   /**
+    * @param login the login to set
+    */
+   public void setLogin(String login)
+   {
+      this.login = login;
+   }
+
+   /**
+    * @param password the password to set
+    */
+   public void setPassword(String password)
+   {
+      this.password = password;
+   }
+
+   /**
+    * @param keyId the keyId to set
+    */
+   public void setKeyId(int keyId)
+   {
+      this.keyId = keyId;
+   }
+
+   /**
+    * Fill NXCPMessage with object data
+    * 
+    * @param msg message
+    * @param base base field ID
+    */
+   public void fillMessage(NXCPMessage msg, long base)
+   {
+      msg.setField(base, login);
+      msg.setField(base + 1, password);
+      msg.setFieldInt32(base + 2, keyId);
    }
 }

@@ -13155,6 +13155,47 @@ public class NXCSession
    }
 
    /**
+    * Get SSH credentials for all zones and global ones
+    * 
+    * @param objectId journal owner object ID
+    * @param entryId journal entry ID
+    * @param description journal entry description
+    * @return list of SSH credentials
+    * @throws IOException if socket I/O error occurs
+    * @throws NXCException if NetXMS server returns an error or operation was timed out
+    */
+   public Map<Integer, List<SshCredential>> getSshCredentials() throws IOException, NXCException
+   {
+      final NXCPMessage msg = newMessage(NXCPCodes.CMD_GET_SSH_CREDENTIALS);
+      msg.setFieldInt32(NXCPCodes.VID_ZONE_UIN, -2);
+      sendMessage(msg);
+
+      NXCPMessage response = waitForRCC(msg.getMessageId());
+
+      int count = response.getFieldAsInt32(NXCPCodes.VID_NUM_ELEMENTS);
+      Map<Integer, List<SshCredential>> credentials = new HashMap<Integer, List<SshCredential>>(count);
+      long base = NXCPCodes.VID_ELEMENT_LIST_BASE;
+
+      for(int i = 0; i < count; i++, base += 10)
+      {
+         int zoneUIN = msg.getFieldAsInt32(base + 3);
+         if(credentials.containsKey(zoneUIN))
+         {
+            credentials.get(zoneUIN).add(new SshCredential(response, base));
+         }
+         else
+         {
+            List<SshCredential> crdList = new ArrayList<SshCredential>();
+            crdList.add(new SshCredential(response, base));
+            credentials.put(zoneUIN, crdList);
+         }
+      }
+         
+
+      return credentials;
+   }
+
+   /**
     * Get SSH credentials for specified zone
     * 
     * @param objectId journal owner object ID
@@ -13164,7 +13205,7 @@ public class NXCSession
     * @throws IOException if socket I/O error occurs
     * @throws NXCException if NetXMS server returns an error or operation was timed out
     */
-   public List<SshCredentials> getSshCredentials(int zoneUIN) throws IOException, NXCException
+   public List<SshCredential> getSshCredentials(int zoneUIN) throws IOException, NXCException
    {
       final NXCPMessage msg = newMessage(NXCPCodes.CMD_GET_SSH_CREDENTIALS);
       msg.setFieldInt32(NXCPCodes.VID_ZONE_UIN, (int)zoneUIN);
@@ -13173,12 +13214,36 @@ public class NXCSession
       NXCPMessage response = waitForRCC(msg.getMessageId());
 
       int count = response.getFieldAsInt32(NXCPCodes.VID_NUM_ELEMENTS);
-      List<SshCredentials> credentials = new ArrayList<SshCredentials>(count);
+      List<SshCredential> credentials = new ArrayList<SshCredential>(count);
       long base = NXCPCodes.VID_ELEMENT_LIST_BASE;
 
       for(int i = 0; i < count; i++, base += 10)
-         credentials.add(new SshCredentials(response, base));
+         credentials.add(new SshCredential(response, base));
 
       return credentials;
+   }
+
+   /**
+    * Update list of well-known SSH credentials on the server. Existing list will be replaced by the provided one.
+    *
+    * @param zoneUIN Zone UIN (unique identification number)
+    * @param sshCredentials List of SSH credentials
+    * @throws IOException if socket I/O error occurs
+    * @throws NXCException if NetXMS server returns an error or operation was timed out
+    */
+   public void updateSshCredentials(int zoneUIN, List<SshCredential> sshCredentials) throws IOException, NXCException
+   {
+      final NXCPMessage msg = newMessage(NXCPCodes.CMD_UPDATE_SSH_CREDENTIALS);
+      msg.setFieldInt32(NXCPCodes.VID_ZONE_UIN, zoneUIN);
+      long base = NXCPCodes.VID_ELEMENT_LIST_BASE;
+      for(SshCredential element : sshCredentials)
+      {
+         element.fillMessage(msg, base);
+         base += 10;
+      }
+
+      msg.setFieldInt32(NXCPCodes.VID_NUM_RECORDS, sshCredentials.size());
+      sendMessage(msg);
+      waitForRCC(msg.getMessageId());
    }
 }

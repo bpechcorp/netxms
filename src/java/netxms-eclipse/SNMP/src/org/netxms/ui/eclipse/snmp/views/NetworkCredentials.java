@@ -54,6 +54,8 @@ import org.eclipse.ui.part.ViewPart;
 import org.netxms.client.NXCSession;
 import org.netxms.client.SessionListener;
 import org.netxms.client.SessionNotification;
+import org.netxms.client.SshCredential;
+import org.netxms.client.SshKeyPair;
 import org.netxms.client.snmp.SnmpUsmCredential;
 import org.netxms.ui.eclipse.actions.RefreshAction;
 import org.netxms.ui.eclipse.console.resources.SharedIcons;
@@ -62,9 +64,11 @@ import org.netxms.ui.eclipse.objectbrowser.widgets.ZoneSelector;
 import org.netxms.ui.eclipse.shared.ConsoleSharedData;
 import org.netxms.ui.eclipse.snmp.Activator;
 import org.netxms.ui.eclipse.snmp.Messages;
+import org.netxms.ui.eclipse.snmp.dialogs.AddSshCredDialog;
 import org.netxms.ui.eclipse.snmp.dialogs.AddUsmCredDialog;
 import org.netxms.ui.eclipse.snmp.views.helpers.NetworkConfig;
 import org.netxms.ui.eclipse.snmp.views.helpers.SnmpUsmLabelProvider;
+import org.netxms.ui.eclipse.snmp.views.helpers.SshCredLabelProvider;
 import org.netxms.ui.eclipse.tools.MessageDialogHelper;
 import org.netxms.ui.eclipse.widgets.CompositeWithMessageBar;
 import org.netxms.ui.eclipse.widgets.MessageBar;
@@ -84,6 +88,10 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
    public static final int USM_CRED_ENC_PASSWORD = 4;
    public static final int USM_CRED_COMMENTS = 5;
 	
+   public static final int SSH_CRED_LOGIN = 0;
+   public static final int SSH_CRED_PASSWORD = 1;
+   public static final int SSH_CRED_KEY = 2;
+
 	private NXCSession session;
 	private boolean modified = false;
 	private boolean bothModified = false;
@@ -95,12 +103,17 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
 	private SortableTableViewer snmpUsmCredList;
 	private TableViewer snmpPortList;
    private TableViewer sharedSecretList;
+   private TableViewer agentPortList;
+   private TableViewer sshCredList;
+   private TableViewer sshPortList;
 	private Action actionSave;
    private RefreshAction actionRefresh;
 	private NetworkConfig config;
 	private ZoneSelector zoneSelector;
    private Display display;
 	private long zoneUIN = NetworkConfig.NETWORK_CONFIG_GLOBAL;
+   List<SshKeyPair> keyList;
+   SshCredLabelProvider sshLabelProvider;
 
 
 	/* (non-Javadoc)
@@ -204,6 +217,9 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
 		createSnmpPortList();
       createSnmpUsmCredSection();
       createSharedSecretList();
+      createAgentPortList();
+      createSshCredentialsList();
+      createSshPortList();
 		
 		createActions();
 		contributeToActionBars();
@@ -222,6 +238,8 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
          @Override
          protected void runInternal(IProgressMonitor monitor) throws Exception
          {
+            keyList = session.getSshKeys(false);
+            sshLabelProvider.setKeyList(keyList);
             config.load(configId, zoneUIN);
             runInUIThread(new Runnable() {
                @Override
@@ -610,8 +628,8 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
    private void createSharedSecretList()
    {
       Section section = toolkit.createSection(form.getBody(), Section.DESCRIPTION | Section.TITLE_BAR);
-      section.setText("Shared secrets");
-      section.setDescription("Shared secrets used in the network");
+      section.setText("Agent shared secrets");
+      section.setDescription("Agent shared secrets used in the network");
       TableWrapData td = new TableWrapData();
       td.align = TableWrapData.FILL;
       td.grabHorizontal = true;
@@ -692,6 +710,296 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
       });
    }
 
+   /**
+    * Create "Agent ports" section
+    */
+   private void createAgentPortList()
+   {
+      Section section = toolkit.createSection(form.getBody(), Section.DESCRIPTION | Section.TITLE_BAR);
+      section.setText("Agent ports");
+      section.setDescription("Agent ports used in the network");
+      TableWrapData td = new TableWrapData();
+      td.align = TableWrapData.FILL;
+      td.grabHorizontal = true;
+      section.setLayoutData(td);
+
+      Composite clientArea = toolkit.createComposite(section);
+      GridLayout layout = new GridLayout();
+      layout.numColumns = 2;
+      clientArea.setLayout(layout);
+      section.setClient(clientArea);
+
+      agentPortList = new TableViewer(clientArea, SWT.BORDER | SWT.MULTI | SWT.FULL_SELECTION);
+      toolkit.adapt(agentPortList.getTable());
+      GridData gd = new GridData();
+      gd.horizontalAlignment = SWT.FILL;
+      gd.grabExcessHorizontalSpace = true;
+      gd.verticalAlignment = SWT.FILL;
+      gd.grabExcessVerticalSpace = true;
+      gd.verticalSpan = 4;
+      gd.heightHint = 150;
+      agentPortList.getTable().setLayoutData(gd);
+      agentPortList.setContentProvider(new ArrayContentProvider());
+
+      final ImageHyperlink linkAdd = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkAdd.setText(Messages.get().SnmpConfigurator_Add);
+      linkAdd.setImage(SharedIcons.IMG_ADD_OBJECT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkAdd.setLayoutData(gd);
+      linkAdd.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            addAgentPort();
+         }
+      });
+
+      final ImageHyperlink linkRemove = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkRemove.setText(Messages.get().SnmpConfigurator_Remove);
+      linkRemove.setImage(SharedIcons.IMG_DELETE_OBJECT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkRemove.setLayoutData(gd);
+      linkRemove.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            removeAgentPort();
+         }
+      });
+
+      final ImageHyperlink linkUp = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkUp.setText("Up");
+      linkUp.setImage(SharedIcons.IMG_UP);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkUp.setLayoutData(gd);
+      linkUp.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            moveAgentPort(true);
+         }
+      });
+
+      final ImageHyperlink linkDown = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkDown.setText("Down");
+      linkDown.setImage(SharedIcons.IMG_DOWN);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkDown.setLayoutData(gd);
+      linkDown.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            moveAgentPort(false);
+         }
+      });
+   }
+
+   /**
+    * Create "SSH Credentials" section
+    */
+   private void createSshCredentialsList()
+   {
+      Section section = toolkit.createSection(form.getBody(), Section.DESCRIPTION | Section.TITLE_BAR);
+      section.setText("SSH credentials");
+      section.setDescription("SSH credentials used in the network");
+      TableWrapData td = new TableWrapData();
+      td.align = TableWrapData.FILL;
+      td.grabHorizontal = true;
+      // td.colspan = 2;
+      section.setLayoutData(td);
+
+      Composite clientArea = toolkit.createComposite(section);
+      GridLayout layout = new GridLayout();
+      layout.numColumns = 2;
+      clientArea.setLayout(layout);
+      section.setClient(clientArea);
+
+      final String[] names = { "Login", "Password", "Key" };
+      final int[] widths = { 150, 150, 150 };
+      sshCredList = new SortableTableViewer(clientArea, names, widths, 0, SWT.DOWN, SWT.BORDER | SWT.MULTI | SWT.FULL_SELECTION);
+      toolkit.adapt(sshCredList.getTable());
+      GridData gd = new GridData();
+      gd.horizontalAlignment = SWT.FILL;
+      gd.grabExcessHorizontalSpace = true;
+      gd.verticalAlignment = SWT.FILL;
+      gd.grabExcessVerticalSpace = true;
+      gd.verticalSpan = 5;
+      gd.heightHint = 150;
+      sshCredList.getTable().setLayoutData(gd);
+      sshCredList.setContentProvider(new ArrayContentProvider());
+      sshLabelProvider = new SshCredLabelProvider();
+      sshCredList.setLabelProvider(sshLabelProvider);
+      sshCredList.addDoubleClickListener(new IDoubleClickListener() {
+         @Override
+         public void doubleClick(DoubleClickEvent event)
+         {
+            editUsmCredentials();
+         }
+      });
+
+      final ImageHyperlink linkAdd = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkAdd.setText(Messages.get().SnmpConfigurator_Add);
+      linkAdd.setImage(SharedIcons.IMG_ADD_OBJECT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkAdd.setLayoutData(gd);
+      linkAdd.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            addSshCredentials();
+         }
+      });
+
+      final ImageHyperlink linkEdit = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkEdit.setText("Edit...");
+      linkEdit.setImage(SharedIcons.IMG_EDIT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkEdit.setLayoutData(gd);
+      linkEdit.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            editSshCredentials();
+         }
+      });
+
+      final ImageHyperlink linkRemove = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkRemove.setText(Messages.get().SnmpConfigurator_Remove);
+      linkRemove.setImage(SharedIcons.IMG_DELETE_OBJECT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkRemove.setLayoutData(gd);
+      linkRemove.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            removeSshCredentials();
+         }
+      });
+
+      final ImageHyperlink linkUp = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkUp.setText("Up");
+      linkUp.setImage(SharedIcons.IMG_UP);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkUp.setLayoutData(gd);
+      linkUp.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            moveSshCredentials(true);
+         }
+      });
+
+      final ImageHyperlink linkDown = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkDown.setText("Down");
+      linkDown.setImage(SharedIcons.IMG_DOWN);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkDown.setLayoutData(gd);
+      linkDown.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            moveSshCredentials(false);
+         }
+      });
+   }
+
+   /**
+    * Create "SSH ports" section
+    */
+   private void createSshPortList()
+   {
+      Section section = toolkit.createSection(form.getBody(), Section.DESCRIPTION | Section.TITLE_BAR);
+      section.setText("SSH ports");
+      section.setDescription("SSH ports used in the network");
+      TableWrapData td = new TableWrapData();
+      td.align = TableWrapData.FILL;
+      td.grabHorizontal = true;
+      section.setLayoutData(td);
+
+      Composite clientArea = toolkit.createComposite(section);
+      GridLayout layout = new GridLayout();
+      layout.numColumns = 2;
+      clientArea.setLayout(layout);
+      section.setClient(clientArea);
+
+      sshPortList = new TableViewer(clientArea, SWT.BORDER | SWT.MULTI | SWT.FULL_SELECTION);
+      toolkit.adapt(sshPortList.getTable());
+      GridData gd = new GridData();
+      gd.horizontalAlignment = SWT.FILL;
+      gd.grabExcessHorizontalSpace = true;
+      gd.verticalAlignment = SWT.FILL;
+      gd.grabExcessVerticalSpace = true;
+      gd.verticalSpan = 4;
+      gd.heightHint = 150;
+      sshPortList.getTable().setLayoutData(gd);
+      sshPortList.setContentProvider(new ArrayContentProvider());
+
+      final ImageHyperlink linkAdd = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkAdd.setText(Messages.get().SnmpConfigurator_Add);
+      linkAdd.setImage(SharedIcons.IMG_ADD_OBJECT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkAdd.setLayoutData(gd);
+      linkAdd.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            addSshPort();
+         }
+      });
+
+      final ImageHyperlink linkRemove = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkRemove.setText(Messages.get().SnmpConfigurator_Remove);
+      linkRemove.setImage(SharedIcons.IMG_DELETE_OBJECT);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkRemove.setLayoutData(gd);
+      linkRemove.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            removeSshPort();
+         }
+      });
+
+      final ImageHyperlink linkUp = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkUp.setText("Up");
+      linkUp.setImage(SharedIcons.IMG_UP);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkUp.setLayoutData(gd);
+      linkUp.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            moveSshPort(true);
+         }
+      });
+
+      final ImageHyperlink linkDown = toolkit.createImageHyperlink(clientArea, SWT.NONE);
+      linkDown.setText("Down");
+      linkDown.setImage(SharedIcons.IMG_DOWN);
+      gd = new GridData();
+      gd.verticalAlignment = SWT.TOP;
+      linkDown.setLayoutData(gd);
+      linkDown.addHyperlinkListener(new HyperlinkAdapter() {
+         @Override
+         public void linkActivated(HyperlinkEvent e)
+         {
+            moveSshPort(false);
+         }
+      });
+   }
+
    /* (non-Javadoc)
 	 * @see org.eclipse.ui.part.WorkbenchPart#setFocus()
 	 */
@@ -717,8 +1025,11 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
 	{
       snmpCommunityList.setInput(config.getCommunities(zoneUIN));
       snmpUsmCredList.setInput(config.getUsmCredentials(zoneUIN));
-      snmpPortList.setInput(config.getPorts(zoneUIN));
-      sharedSecretList.setInput(config.getSharedSecrets(zoneUIN));	   
+      snmpPortList.setInput(config.getSnmpPorts(zoneUIN));
+      sharedSecretList.setInput(config.getSharedSecrets(zoneUIN));
+      agentPortList.setInput(config.getAgentPorts(zoneUIN));
+      sshCredList.setInput(config.getSshCredentials(zoneUIN));
+      sshPortList.setInput(config.getSshPorts(zoneUIN));
 	}
 	
 	/**
@@ -990,13 +1301,13 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
     */
    private void addSnmpPort()
    {
-      InputDialog dlg = new InputDialog(getSite().getShell(), Messages.get().NetworkCredentials_AddPort, 
-            Messages.get().NetworkCredentials_PleaseEnterPort, "", null); //$NON-NLS-1$
+      InputDialog dlg = new InputDialog(getSite().getShell(), Messages.get().NetworkCredentials_AddSnmpPort, 
+            Messages.get().NetworkCredentials_PleaseEnterSnmpPort, "", null); //$NON-NLS-1$
       if (dlg.open() == Window.OK)
       {
          String value = dlg.getValue();
-         config.addPort(Integer.parseInt(value), zoneUIN);
-         snmpPortList.setInput(config.getPorts(zoneUIN));
+         config.addSnmpPort(Integer.parseInt(value), zoneUIN);
+         snmpPortList.setInput(config.getSnmpPorts(zoneUIN));
          setModified(NetworkConfig.SNMP_PORTS);
       }
    }
@@ -1006,7 +1317,7 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
     */
    private void removeSnmpPort()
    {
-      final List<Integer> list = config.getPorts(zoneUIN);
+      final List<Integer> list = config.getSnmpPorts(zoneUIN);
       IStructuredSelection selection = (IStructuredSelection)snmpPortList.getSelection();
       if (selection.size() > 0)
       {
@@ -1026,7 +1337,7 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
     */
    protected void moveSnmpPort(boolean up)
    {
-      final List<Integer> list = config.getPorts(zoneUIN);
+      final List<Integer> list = config.getSnmpPorts(zoneUIN);
       IStructuredSelection selection = (IStructuredSelection)snmpPortList.getSelection();
       if (selection.size() > 0)
       {
@@ -1118,6 +1429,225 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
          }
          sharedSecretList.setInput(list);
          setModified(NetworkConfig.AGENT_SECRETS);
+      }
+   }
+
+   /**
+    * Add agent port to the list
+    */
+   private void addAgentPort()
+   {
+      InputDialog dlg = new InputDialog(getSite().getShell(), "Add agent port", "Please enter agent port", "", null); //$NON-NLS-1$
+      if (dlg.open() == Window.OK)
+      {
+         String value = dlg.getValue();
+         config.addAgentPort(Integer.parseInt(value), zoneUIN);
+         agentPortList.setInput(config.getAgentPorts(zoneUIN));
+         setModified(NetworkConfig.AGENT_PORTS);
+      }
+   }
+
+   /**
+    * Remove selected agent port
+    */
+   private void removeAgentPort()
+   {
+      final List<Integer> list = config.getAgentPorts(zoneUIN);
+      IStructuredSelection selection = (IStructuredSelection)agentPortList.getSelection();
+      if (selection.size() > 0)
+      {
+         for(Object o : selection.toList())
+         {
+            list.remove((Integer)o);
+         }
+         agentPortList.setInput(list.toArray());
+         setModified(NetworkConfig.AGENT_PORTS);
+      }
+   }
+
+   /**
+    * Move agent port
+    * 
+    * @param up true if up, false if down
+    */
+   protected void moveAgentPort(boolean up)
+   {
+      final List<Integer> list = config.getAgentPorts(zoneUIN);
+      IStructuredSelection selection = (IStructuredSelection)agentPortList.getSelection();
+      if (selection.size() > 0)
+      {
+         for(Object o : selection.toList())
+         {
+            int index = list.indexOf((Integer)o);
+            if (up)
+            {
+               if (index < 1)
+                  return;
+
+               Collections.swap(list, index - 1, index);
+            }
+            else
+            {
+               if ((index + 1) == list.size())
+                  return;
+
+               Collections.swap(list, index + 1, index);
+            }
+         }
+         agentPortList.setInput(list);
+         setModified(NetworkConfig.AGENT_PORTS);
+      }
+   }
+
+   /**
+    * Add SSH credentials to the list
+    */
+   private void addSshCredentials()
+   {
+      AddSshCredDialog dlg = new AddSshCredDialog(getSite().getShell(), null, keyList);
+      if (dlg.open() == Window.OK)
+      {
+         SshCredential cred = dlg.getValue();
+         config.addSshCredentials(cred, zoneUIN);
+         sshCredList.setInput(config.getSshCredentials(zoneUIN));
+         setModified(NetworkConfig.SSH_CREDENTIALS);
+      }
+   }
+
+   /**
+    * Edit SSH credential
+    */
+   private void editSshCredentials()
+   {
+      IStructuredSelection selection = (IStructuredSelection)sshCredList.getSelection();
+      if (selection.size() != 1)
+         return;
+      SshCredential cred = (SshCredential)selection.getFirstElement();
+      AddSshCredDialog dlg = new AddSshCredDialog(getSite().getShell(), cred, keyList);
+      if (dlg.open() == Window.OK)
+      {
+         final List<SshCredential> list = config.getSshCredentials(zoneUIN);
+         sshCredList.setInput(list.toArray());
+         setModified(NetworkConfig.SSH_CREDENTIALS);
+      }
+   }
+
+   /**
+    * Remove selected SSH credentials
+    */
+   private void removeSshCredentials()
+   {
+      final List<SshCredential> list = config.getSshCredentials(zoneUIN);
+      IStructuredSelection selection = (IStructuredSelection)sshCredList.getSelection();
+      if (selection.size() > 0)
+      {
+         for(Object o : selection.toList())
+         {
+            list.remove(o);
+         }
+         sshCredList.setInput(list.toArray());
+         setModified(NetworkConfig.SSH_CREDENTIALS);
+      }
+   }
+
+   /**
+    * Move SSH credential
+    * 
+    * @param up true if up, false if down
+    */
+   protected void moveSshCredentials(boolean up)
+   {
+      final List<SshCredential> list = config.getSshCredentials(zoneUIN);
+      IStructuredSelection selection = (IStructuredSelection)sshCredList.getSelection();
+      if (selection.size() > 0)
+      {
+         for(Object o : selection.toList())
+         {
+            int index = list.indexOf(o);
+            if (up)
+            {
+               if (index < 1)
+                  return;
+
+               Collections.swap(list, index - 1, index);
+            }
+            else
+            {
+               if ((index + 1) == list.size())
+                  return;
+
+               Collections.swap(list, index + 1, index);
+            }
+         }
+         sshCredList.setInput(list);
+         setModified(NetworkConfig.SSH_CREDENTIALS);
+      }
+   }
+
+   /**
+    * Add SSH port to the list
+    */
+   private void addSshPort()
+   {
+      InputDialog dlg = new InputDialog(getSite().getShell(), "Add SSH port", "Please enter SSH port", "", null); //$NON-NLS-1$
+      if (dlg.open() == Window.OK)
+      {
+         String value = dlg.getValue();
+         config.addSshPort(Integer.parseInt(value), zoneUIN);
+         sshPortList.setInput(config.getSshPorts(zoneUIN));
+         setModified(NetworkConfig.SSH_PORTS);
+      }
+   }
+
+   /**
+    * Remove selected SSH port
+    */
+   private void removeSshPort()
+   {
+      final List<Integer> list = config.getSshPorts(zoneUIN);
+      IStructuredSelection selection = (IStructuredSelection)sshPortList.getSelection();
+      if (selection.size() > 0)
+      {
+         for(Object o : selection.toList())
+         {
+            list.remove((Integer)o);
+         }
+         sshPortList.setInput(list.toArray());
+         setModified(NetworkConfig.SSH_PORTS);
+      }
+   }
+
+   /**
+    * Move SSH port
+    * 
+    * @param up true if up, false if down
+    */
+   protected void moveSshPort(boolean up)
+   {
+      final List<Integer> list = config.getSshPorts(zoneUIN);
+      IStructuredSelection selection = (IStructuredSelection)sshPortList.getSelection();
+      if (selection.size() > 0)
+      {
+         for(Object o : selection.toList())
+         {
+            int index = list.indexOf((Integer)o);
+            if (up)
+            {
+               if (index < 1)
+                  return;
+
+               Collections.swap(list, index - 1, index);
+            }
+            else
+            {
+               if ((index + 1) == list.size())
+                  return;
+
+               Collections.swap(list, index + 1, index);
+            }
+         }
+         sshPortList.setInput(list);
+         setModified(NetworkConfig.SSH_PORTS);
       }
    }
 }

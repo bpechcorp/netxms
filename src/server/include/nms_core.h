@@ -887,6 +887,7 @@ private:
    void readMaintJournal(const NXCPMessage& request);
    void createMaintJournal(const NXCPMessage& request);
    void editMaintJournal(const NXCPMessage& request);
+   void updateSshCredentials(const NXCPMessage& request);
 
    void alarmUpdateWorker(Alarm *alarm);
    void sendActionDBUpdateMessage(NXCP_MESSAGE *msg);

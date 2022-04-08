@@ -1874,6 +1874,9 @@ void ClientSession::processRequest(NXCPMessage *request)
       case CMD_EDIT_MAINTENANCE_JOURNAL:
          editMaintJournal(*request);
          break;
+      case CMD_UPDATE_SSH_CREDENTIALS:
+         updateSshCredentials(*request);
+         break;
       default:
          if ((code >> 8) == 0x11)
          {
@@ -11600,6 +11603,10 @@ void ClientSession::updateUsmCredentials(const NXCPMessage& request)
          }
          DBConnectionPoolReleaseConnection(hdb);
       }
+      else
+      {
+         rcc = RCC_INVALID_ZONE_ID;
+      }
 	}
 	else
 	{
@@ -16373,4 +16380,95 @@ void ClientSession::editMaintJournal(const NXCPMessage& request)
    }
 
    sendMessage(response);
+}
+
+/**
+ * Update list of well-known SSH credentials. Existing list will be replaced by provided one.
+ *
+ * Called by:
+ * CMD_EDIT_MAINTENANCE_JOURNAL
+ *
+ * Expected input parameters:
+ * VID_OBJECT_ID     Journal owner (source) ID
+ * VID_RECORD_ID      Maintenance entry ID
+ * VID_DESCRIPTION   Maintenance entry description
+ *
+ * Return values:
+ * VID_RCC                          Request completion code
+ *
+ * NX_NOTIFY_MAINTENANCE_JOURNAL_CHANGED notification with source object ID is generated
+ */
+void ClientSession::updateSshCredentials(const NXCPMessage& request)
+{
+   NXCPMessage response(CMD_REQUEST_COMPLETED, request.getId());
+
+   uint32_t rcc = RCC_SUCCESS;
+	if (m_systemAccessRights & SYSTEM_ACCESS_SERVER_CONFIG)
+	{
+      int32_t zoneUIN = request.getFieldAsInt32(VID_ZONE_UIN);
+      shared_ptr<Zone> zone = FindZoneByUIN(zoneUIN);
+      if (zoneUIN == -1 || zone != nullptr)
+      {
+         DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
+         if (DBBegin(hdb))
+         {
+            if (ExecuteQueryOnObject(hdb, zoneUIN, _T("DELETE FROM ssh_credentials WHERE zone=?")))
+            {
+
+               DB_STATEMENT hStmt = DBPrepare(hdb, _T("INSERT INTO ssh_credentials (id,login,password,key_id,zone) VALUES(?,?,?,?,?)"), true);
+               if (hStmt != nullptr)
+               {
+                  int count = (int)request.getFieldAsUInt32(VID_NUM_RECORDS);
+                  DBBind(hStmt, 5, DB_SQLTYPE_INTEGER, zoneUIN); // zone
+                  long base = VID_ELEMENT_LIST_BASE;
+                  for (int i = 0; i < count; i++, base += 10)
+                  {
+                     DBBind(hStmt, 1, DB_SQLTYPE_INTEGER, i + 1);                                               // id
+                     DBBind(hStmt, 2, DB_SQLTYPE_VARCHAR, request.getFieldAsString(base), DB_BIND_DYNAMIC);     // login
+                     DBBind(hStmt, 3, DB_SQLTYPE_VARCHAR, request.getFieldAsString(base + 1), DB_BIND_DYNAMIC); // password
+                     DBBind(hStmt, 4, DB_SQLTYPE_INTEGER, request.getFieldAsInt32(base + 2));                   // key_id
+                     if (!DBExecute(hStmt))
+                     {
+                        rcc = RCC_DB_FAILURE;
+                        break;
+                     }
+                  }
+                  DBFreeStatement(hStmt);
+               }
+               else
+               {
+                  rcc = RCC_DB_FAILURE;
+               }
+            }
+            else
+            {
+               rcc = RCC_DB_FAILURE;
+            }
+
+            if (rcc == RCC_SUCCESS)
+            {
+               DBCommit(hdb);
+               NotifyClientSessions(NX_NOTIFY_USM_CONFIG_CHANGED, zoneUIN);
+            }
+            else
+               DBRollback(hdb);
+         }
+         else
+         {
+            rcc = RCC_DB_FAILURE;
+         }
+         DBConnectionPoolReleaseConnection(hdb);
+      }
+      else
+      {
+         rcc = RCC_INVALID_ZONE_ID;
+      }
+   }
+   else
+	{
+      rcc = RCC_ACCESS_DENIED;
+	}
+
+   response.setField(VID_RCC, rcc);
+	sendMessage(response);
 }

@@ -1866,7 +1866,7 @@ CREATE TABLE well_known_ports
    tag varchar(15) not null,
    port integer not null,
    zone integer not null,
-   PRIMARY KEY(id,zone)
+   PRIMARY KEY(id,tag,zone)
 ) TABLE_TYPE;
 
 /*
@@ -2541,5 +2541,5 @@ CREATE TABLE ssh_credentials
    password varchar(63) null,
    key_id integer not null,
    zone integer not null,
-   PRIMARY KEY(id)
+   PRIMARY KEY(id, zone)
 ) TABLE_TYPE;

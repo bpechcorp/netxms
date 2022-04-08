@@ -44,11 +44,13 @@ static bool H_UpgradeFromV10()
                      _T(" password varchar(63) null,")
                      _T(" key_id integer not null,")
                      _T(" zone integer not null,")
-                     _T(" PRIMARY KEY(id))")));
+                     _T(" PRIMARY KEY(id, zone))")));
 
    CHK_EXEC(SQLQuery(_T("ALTER TABLE nodes ADD fail_time_ssh integer")));
    CHK_EXEC(SQLQuery(_T("UPDATE nodes SET fail_time_ssh = 0")));
    CHK_EXEC(DBSetNotNullConstraint(g_dbHandle, _T("nodes"), _T("fail_time_ssh")));
+
+   CHK_EXEC(DBAddPrimaryKey(g_dbHandle, _T("well_known_ports"), _T("id,tag,zone")));
 
    CHK_EXEC(SetMinorSchemaVersion(11));
    return true;

@@ -143,10 +143,9 @@ public class NetworkConfig
    }
 
    /**
-    * Save SNMP configuration on server. This method calls communication
-    * API directly, so it should not be called from UI thread.
+    * Save SNMP configuration on server. This method calls communication API directly, so it should not be called from UI thread.
     * 
-    * @params session communication session to use
+    * @param session communication session to use
     * @throws IOException if socket I/O error occurs
     * @throws NXCException if NetXMS server returns an error or operation was timed out
     */
@@ -208,6 +207,7 @@ public class NetworkConfig
    }
    
    /**
+    * @param zoneUIN the zone which community strings to get
     * @return the communities
     */
    public List<String> getCommunities(long zoneUIN)
@@ -219,7 +219,8 @@ public class NetworkConfig
    }
 
    /**
-    * @param communities the communities to set
+    * @param communityString the community string to set
+    * @param zoneUIN the zone of the community string
     */
    public void addCommunityString(String communityString, long zoneUIN)
    {
@@ -234,6 +235,7 @@ public class NetworkConfig
    }
 
    /**
+    * @param zoneUIN the zone which ports to get
     * @return the ports
     */
    public List<Integer> getSnmpPorts(long zoneUIN)
@@ -245,6 +247,7 @@ public class NetworkConfig
    }
 
    /**
+    * @param zoneUIN the zone which ports to get
     * @return the ports
     */
    public List<Integer> getAgentPorts(long zoneUIN)
@@ -256,6 +259,7 @@ public class NetworkConfig
    }
 
    /**
+    * @param zoneUIN
     * @return the communities
     */
    public List<SshCredential> getSshCredentials(long zoneUIN)
@@ -285,6 +289,7 @@ public class NetworkConfig
    }
 
    /**
+    * @param zoneUIN the zone which ports to get
     * @return the ports
     */
    public List<Integer> getSshPorts(long zoneUIN)
@@ -296,7 +301,8 @@ public class NetworkConfig
    }
 
    /**
-    * @param communities the communities to set // TODO DIMA fix all javadoc
+    * @param port the port to set
+    * @param zoneUIN the zone of the given port
     */
    public void addSnmpPort(Integer port, long zoneUIN)
    {
@@ -313,7 +319,8 @@ public class NetworkConfig
    }
 
    /**
-    * @param communities the communities to set
+    * @param port the port to set
+    * @param zoneUIN the zone of the given port
     */
    public void addAgentPort(Integer port, long zoneUIN)
    {
@@ -330,7 +337,8 @@ public class NetworkConfig
    }
 
    /**
-    * @param communities the communities to set
+    * @param port the port to set
+    * @param zoneUIN the zone of the given port
     */
    public void addSshPort(Integer port, long zoneUIN)
    {
@@ -358,7 +366,8 @@ public class NetworkConfig
    }
 
    /**
-    * @param usmCredentials the usmCredentials to set
+    * @param credential the SnmpUsmCredential to set
+    * @param zoneUIN the zone of the given credential
     */
    public void addUsmCredentials(SnmpUsmCredential credential, long zoneUIN)
    {
@@ -375,6 +384,7 @@ public class NetworkConfig
    } 
    
    /**
+    * @param zoneUIN the zone which credentials to get
     * @return the shared secrets
     */
    public List<String> getSharedSecrets(long zoneUIN)

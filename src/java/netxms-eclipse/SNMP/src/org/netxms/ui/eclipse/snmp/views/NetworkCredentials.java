@@ -229,9 +229,11 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
 	}
 	
 	/**
-	 * Load SNMP config
-	 * @param zoneUIN of config
-	 */
+    * Load SNMP configuration
+    * 
+    * @param configId ID of SNMP configuration
+    * @param zoneUIN of configuration
+    */
 	private void loadSnmpConfig(final int configId, final int zoneUIN)
 	{
 	   new ConsoleJob(Messages.get().NetworkCredentials_LoadingConfig, this, Activator.PLUGIN_ID, null) {
@@ -322,11 +324,10 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
 	}
 
 	/**
-	 * Fill local tool bar
-	 * 
-	 * @param manager
-	 *           Menu manager for local toolbar
-	 */
+    * Fill local tool bar
+    * 
+    * @param manager Menu manager for local toolbar
+    */
 	private void fillLocalToolBar(IToolBarManager manager)
 	{
 		manager.add(actionSave);
@@ -535,7 +536,7 @@ public class NetworkCredentials extends ViewPart implements ISaveablePart
 	}
 
    /**
-    * Create "Port List" section
+    * Create "SNMP ports" section
     */
    private void createSnmpPortList()
    {

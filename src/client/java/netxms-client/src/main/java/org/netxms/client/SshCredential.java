@@ -22,7 +22,7 @@ package org.netxms.client;
 import org.netxms.base.NXCPMessage;
 
 /**
- * SSH credentials
+ * SSH credentials object
  */
 public class SshCredential
 {
@@ -31,7 +31,11 @@ public class SshCredential
    private int keyId;
 
    /**
-    * Create new SSH credentials object.
+    * Create new SSH credentials object
+    * 
+    * @param login
+    * @param password
+    * @param keyId
     */
    public SshCredential(String login, String password, int keyId)
    {
@@ -41,7 +45,7 @@ public class SshCredential
    }
 
    /**
-    * Create new SSH credentials object from NXCPMessage.
+    * Create new SSH credentials object from NXCPMessage
     * 
     * @param msg message
     * @param base base field ID

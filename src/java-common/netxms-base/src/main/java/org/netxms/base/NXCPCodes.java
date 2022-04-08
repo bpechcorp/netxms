@@ -425,7 +425,7 @@ public class NXCPCodes
    public static final int CMD_GET_SHARED_SECRET_LIST = 0x0198;
    public static final int CMD_UPDATE_SHARED_SECRET_LIST = 0x0199;
    public static final int CMD_GET_SNMP_PORT_LIST = 0x019A;
-   public static final int CMD_UPDATE_SNMP_PORT_LIST = 0x019B;
+   public static final int CMD_UPDATE_WELL_KNOWN_PORT_LIST = 0x019B;
    public static final int CMD_GET_LOG_RECORD_DETAILS = 0x019C;
    public static final int CMD_GET_DCI_LAST_VALUE = 0x019D;
    public static final int CMD_OBJECT_CATEGORY_UPDATE = 0x019E;

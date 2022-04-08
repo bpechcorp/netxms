@@ -46,9 +46,10 @@ public class AddSshCredDialog extends Dialog
    List<SshKeyPair> keyList;
 			
 	/**
-	 * @param parentShell
-	 * @param cred 
-	 */
+    * @param parentShell parent shell
+    * @param cred currently chosen credential
+    * @param keyList list of available SSH keys
+    */
    public AddSshCredDialog(Shell parentShell, SshCredential cred, List<SshKeyPair> keyList)
 	{
 		super(parentShell);

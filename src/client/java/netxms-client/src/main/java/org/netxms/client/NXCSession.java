@@ -12667,7 +12667,7 @@ public class NXCSession
     */
    public void updateWellKnownPorts(int zoneUIN, String tag, List<Integer> ports) throws IOException, NXCException
    {
-      final NXCPMessage msg = newMessage(NXCPCodes.CMD_UPDATE_SNMP_PORT_LIST);
+      final NXCPMessage msg = newMessage(NXCPCodes.CMD_UPDATE_WELL_KNOWN_PORT_LIST);
       msg.setFieldInt32(NXCPCodes.VID_ZONE_UIN, zoneUIN);
       msg.setField(NXCPCodes.VID_TAG, tag);
       long fieldId = NXCPCodes.VID_ZONE_PORT_LIST_BASE;

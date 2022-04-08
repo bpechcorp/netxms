@@ -196,6 +196,7 @@
 #define NC_IS_LOCAL_MGMT          0x00000010
 #define NC_IS_PRINTER             0x00000020
 #define NC_IS_OSPF                0x00000040
+#define NC_IS_SSH                 0x00000080
 #define NC_IS_CDP                 0x00000100
 #define NC_IS_NDP                 0x00000200  /* Supports Nortel (Synoptics/Bay Networks) topology discovery */ /* SONMP is an old name for NDP */
 #define NC_IS_LLDP                0x00000400  /* Supports Link Layer Discovery Protocol */
@@ -215,7 +216,6 @@
 #define NC_IS_MODBUS_TCP          0x01000000
 #define NC_IS_PROFINET            0x02000000
 #define NC_HAS_FILE_MANAGER       0x04000000
-#define NC_IS_SSH                 0x08000000
 
 /**
  * Flag separator
@@ -1178,6 +1178,7 @@ enum AggregationFunction
 #define NXC_NCF_DISABLE_ETHERNET_IP  0x0040
 #define NXC_NCF_SNMP_SETTINGS_LOCKED 0x0080
 #define NXC_NCF_EXTERNAL_GATEWAY     0x0100
+#define NXC_NCF_DISABLE_SSH          0x0200
 
 /**
  * Agent data cache modes

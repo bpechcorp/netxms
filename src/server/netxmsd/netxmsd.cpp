@@ -483,7 +483,7 @@ int main(int argc, char* argv[])
 	// Set exception handler
 #ifdef _WIN32
    ProcessExecutor *crashServer = nullptr;
-   google_breakpad::ExceptionHandler *exceptionHandler = nullptr;
+   //google_breakpad::ExceptionHandler *exceptionHandler = nullptr;
 
    if (g_flags & AF_CATCH_EXCEPTIONS)
    {
@@ -510,15 +510,7 @@ int main(int argc, char* argv[])
             Sleep(200);
             timeout -= 200;
          }
-         if (success)
-         {
-            static google_breakpad::CustomInfoEntry clientInfoEntries[] = { { L"ProcessName", L"netxmsd" } };
-            static google_breakpad::CustomClientInfo clientInfo = { clientInfoEntries, 1 };
-            exceptionHandler = new google_breakpad::ExceptionHandler(g_szDumpDir, nullptr, nullptr, nullptr, google_breakpad::ExceptionHandler::HANDLER_ALL,
-               static_cast<MINIDUMP_TYPE>(((g_flags & AF_WRITE_FULL_DUMP) ? MiniDumpWithFullMemory : MiniDumpNormal) | MiniDumpWithHandleData | MiniDumpWithProcessThreadData),
-               pipeName, &clientInfo);
-         }
-         else
+         if (!success)
          {
             delete_and_null(crashServer);
          }
@@ -619,7 +611,7 @@ int main(int argc, char* argv[])
 #endif   /* _WIN32 */
 
 #ifdef _WIN32
-   delete exceptionHandler;
+   //delete exceptionHandler;
    delete crashServer;
 #endif
    return 0;

@@ -1,6 +1,6 @@
 /**
  * NetXMS - open source network management system
- * Copyright (C) 2003-2022 Victor Kirhenshtein
+ * Copyright (C) 2003-2020 Victor Kirhenshtein
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,11 +18,9 @@
  */
 package org.netxms.nxmc.tools;
 
-import java.net.MalformedURLException;
 import java.net.URL;
 import org.eclipse.rap.rwt.RWT;
 import org.eclipse.rap.rwt.client.service.UrlLauncher;
-import org.eclipse.swt.widgets.Display;
 
 /**
  * Helper class to interact with external web browser
@@ -48,28 +46,5 @@ public class ExternalWebBrowser
    {
       UrlLauncher launcher = RWT.getClient().getService(UrlLauncher.class);
       launcher.openURL(url);
-   }
-
-   /**
-    * Get local address that can be used for connecting to this client. It is always 127.0.0.1 for desktop client but can be
-    * different for web client.
-    * 
-    * @param display current display
-    * @return local address that can be used for connecting to this client
-    */
-   public static String getLocalAddress(Display display)
-   {
-      final String[] address = new String[1];
-      display.syncExec(() -> {
-         try
-         {
-            address[0] = new URL(RWT.getRequest().getRequestURL().toString()).getHost();
-         }
-         catch(MalformedURLException e)
-         {
-            address[0] = "127.0.0.1";
-         }
-      });
-      return address[0];
    }
 }

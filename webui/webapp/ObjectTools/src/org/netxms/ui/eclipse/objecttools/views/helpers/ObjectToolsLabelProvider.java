@@ -32,10 +32,22 @@ import org.netxms.ui.eclipse.objecttools.views.ObjectToolsEditor;
  */
 public class ObjectToolsLabelProvider extends LabelProvider implements ITableLabelProvider
 {
-	private final String[] TOOL_TYPES = getAllToolTypes();
-
+	private final String[] TOOL_TYPES = { 
+		Messages.get().ObjectToolsLabelProvider_TypeInternal,
+		Messages.get().ObjectToolsLabelProvider_TypeAgentCmd,
+		Messages.get().ObjectToolsLabelProvider_TypeSNMPTable,
+		Messages.get().ObjectToolsLabelProvider_TypeAgentList,
+		Messages.get().ObjectToolsLabelProvider_TypeURL,
+		Messages.get().ObjectToolsLabelProvider_TypeLocalCmd,
+		Messages.get().ObjectToolsLabelProvider_TypeServerCmd,
+		Messages.get().ObjectToolsLabelProvider_TypeDownloadFile,
+      Messages.get().ObjectToolsLabelProvider_TypeServerScript,
+      Messages.get().ObjectToolsLabelProvider_TypeAgentTable,
+      Messages.get().ObjectToolsLabelProvider_TypeSshCmd
+	};
+	
 	private Image[] toolTypeImages = new Image[TOOL_TYPES.length + 1];
-
+	
 	/**
 	 * The constructor
 	 */
@@ -141,20 +153,8 @@ public class ObjectToolsLabelProvider extends LabelProvider implements ITableLab
 	 * Get names of all tool types.
 	 * @return
 	 */
-	public static String[] getAllToolTypes()
+	public String[] getAllToolTypes()
 	{
-	   return new String[] { 
-         Messages.get().ObjectToolsLabelProvider_TypeInternal,
-         Messages.get().ObjectToolsLabelProvider_TypeAgentCmd,
-         Messages.get().ObjectToolsLabelProvider_TypeSNMPTable,
-         Messages.get().ObjectToolsLabelProvider_TypeAgentList,
-         Messages.get().ObjectToolsLabelProvider_TypeURL,
-         Messages.get().ObjectToolsLabelProvider_TypeLocalCmd,
-         Messages.get().ObjectToolsLabelProvider_TypeServerCmd,
-         Messages.get().ObjectToolsLabelProvider_TypeDownloadFile,
-         Messages.get().ObjectToolsLabelProvider_TypeServerScript,
-         Messages.get().ObjectToolsLabelProvider_TypeAgentTable,
-         Messages.get().ObjectToolsLabelProvider_TypeSshCmd
-      };
+		return TOOL_TYPES;
 	}
 }

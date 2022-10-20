@@ -27,7 +27,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.eclipse.milo.opcua.sdk.client.OpcUaClient;
 import org.eclipse.milo.opcua.sdk.client.api.identity.AnonymousProvider;
-import org.eclipse.milo.opcua.sdk.client.api.identity.UsernameProvider;
 import org.eclipse.milo.opcua.sdk.client.nodes.UaVariableNode;
 import org.eclipse.milo.opcua.stack.core.Identifiers;
 import org.eclipse.milo.opcua.stack.core.StatusCodes;
@@ -35,9 +34,7 @@ import org.eclipse.milo.opcua.stack.core.UaRuntimeException;
 import org.eclipse.milo.opcua.stack.core.UaServiceFaultException;
 import org.eclipse.milo.opcua.stack.core.security.SecurityPolicy;
 import org.eclipse.milo.opcua.stack.core.types.builtin.DataValue;
-import org.eclipse.milo.opcua.stack.core.types.builtin.DateTime;
 import org.eclipse.milo.opcua.stack.core.types.builtin.ExpandedNodeId;
-import org.eclipse.milo.opcua.stack.core.types.builtin.ExtensionObject;
 import org.eclipse.milo.opcua.stack.core.types.builtin.LocalizedText;
 import org.eclipse.milo.opcua.stack.core.types.builtin.NodeId;
 import org.eclipse.milo.opcua.stack.core.types.builtin.StatusCode;
@@ -98,7 +95,7 @@ public class ServerConnection
    {
       if (session != null)
          return;
-
+      
       try
       {
          session = OpcUaClient.create(url,
@@ -113,7 +110,7 @@ public class ServerConnection
                      .setApplicationUri("urn:netxms:agent")
                      // .setCertificate(loader.getClientCertificate())
                      // .setKeyPair(loader.getClientKeyPair())
-                     .setIdentityProvider((login != null) ? new UsernameProvider(login, password) : new AnonymousProvider())
+                     .setIdentityProvider(new AnonymousProvider())
                      .setRequestTimeout(UInteger.valueOf(5000))
                      .build());
          session.connect().get(timeout, TimeUnit.MILLISECONDS);
@@ -125,7 +122,7 @@ public class ServerConnection
          throw e;
       }
    }
-
+   
    /**
     * Disconnect from server
     */
@@ -195,35 +192,8 @@ public class ServerConnection
    private String readNodeValue(NodeId nodeId) throws Exception
    {
       UaVariableNode node = session.getAddressSpace().getVariableNode(nodeId);
-      Object value = node.readValue().getValue().getValue();
-      if (value == null)
-         return null;
-
-      Platform.writeDebugLog(6, String.format("OPCUA: readNodeValue(%s) for %s: type %s", nodeId.toString(), url, value.getClass().getCanonicalName()));
-
-      if (value instanceof String[])
-      {
-         StringBuilder sb = new StringBuilder();
-         for(String s : (String[])value)
-         {
-            if (sb.length() > 0)
-               sb.append(' ');
-            sb.append(s);
-         }
-         return sb.toString();
-      }
-
-      if (value instanceof DateTime)
-      {
-         return Long.toString(((DateTime)value).getJavaTime());
-      }
-
-      if (value instanceof ExtensionObject)
-      {
-         return ((ExtensionObject)value).getBody().toString();
-      }
-
-      return value.toString();
+      DataValue value = node.readValue();
+      return value.getValue().toString();
    }
 
    /**
@@ -236,7 +206,7 @@ public class ServerConnection
    public synchronized String getNodeValue(String name) throws Exception
    {
       connect();
-
+      
       NodeId nodeId;
       try
       {
@@ -247,7 +217,7 @@ public class ServerConnection
          Platform.writeDebugLog(6, String.format("OPCUA: error parsing node ID \"%s\"", name));
          return null;
       }
-
+      
       try
       {
          return readNodeValue(nodeId);
@@ -322,7 +292,7 @@ public class ServerConnection
    public boolean writeNode(String node, String value) throws Exception
    {
       connect();
-
+      
       NodeId nodeId;
       try
       {

@@ -120,7 +120,8 @@ public class LogParserEditor extends Composite
 
       tabFolder = new CTabFolder(this, SWT.BOTTOM | SWT.FLAT | SWT.MULTI);
       tabFolder.setUnselectedImageVisible(true);
-      WidgetHelper.disableTabFolderSelectionBar(tabFolder);
+      tabFolder.setSelectionBarThickness(0);
+      tabFolder.setSimple(true);
       tabFolder.addSelectionListener(new SelectionAdapter() {
          @Override
          public void widgetSelected(SelectionEvent e)

@@ -91,6 +91,7 @@
                <descriptorRefs>
                   <descriptorRef>jar-with-dependencies</descriptorRef>
                </descriptorRefs>
+               <finalName>ubntlw</finalName>
                <appendAssemblyId>false</appendAssemblyId>
                <attach>false</attach>
             </configuration>

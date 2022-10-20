@@ -45,28 +45,14 @@
             </plugin>
 
             <plugin>
-               <artifactId>maven-dependency-plugin</artifactId>
-               <version>3.1.1</version>
-               <executions>
-                  <execution>
-                     <phase>generate-resources</phase>
-                     <goals>
-                        <goal>build-classpath</goal>
-                     </goals>
-                  </execution>
-               </executions>
-            </plugin>
-
-            <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.4.2</version>
                 <configuration>
+                    <finalName>opcua</finalName>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
                     <archive>
-                        <manifest>
-                        </manifest>
                         <manifestEntries>
                             <NetXMS-Plugin-Classname>com.radensolutions.netxms.agent.opcua.OpcUaPlugin</NetXMS-Plugin-Classname>
                         </manifestEntries>

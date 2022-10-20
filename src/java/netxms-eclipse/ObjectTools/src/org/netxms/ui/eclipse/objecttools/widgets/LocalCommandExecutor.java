@@ -27,20 +27,16 @@ import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.part.ViewPart;
-import org.netxms.client.objecttools.ObjectTool;
 import org.netxms.ui.eclipse.objects.ObjectContext;
 import org.netxms.ui.eclipse.objecttools.Activator;
 import org.netxms.ui.eclipse.objecttools.Messages;
-import org.netxms.ui.eclipse.objecttools.TcpPortForwarder;
 
 /**
  * Local command executer and result provider widget
  */
 public class LocalCommandExecutor extends AbstractObjectToolExecutor
 {
-   private ObjectTool tool;
    private Process process;
-   private TcpPortForwarder tcpPortForwarder = null;
    private boolean processRunning = false;
    private String command;
    private Object mutex = new Object();
@@ -52,10 +48,9 @@ public class LocalCommandExecutor extends AbstractObjectToolExecutor
     * @param view parent view
     * @param command command to execute
     */
-   public LocalCommandExecutor(Composite resultArea, ViewPart view, ObjectContext objectContext, ActionSet actionSet, ObjectTool tool, String command)
+   public LocalCommandExecutor(Composite resultArea, ViewPart view, ObjectContext objectContext, ActionSet actionSet, String command)
    {
       super(resultArea, view, objectContext, actionSet);
-      this.tool = tool;
       this.command = command;
       addDisposeListener(new DisposeListener() {
          @Override
@@ -66,11 +61,6 @@ public class LocalCommandExecutor extends AbstractObjectToolExecutor
                if (processRunning)
                {
                   process.destroy();
-                  if (tcpPortForwarder != null)
-                  {
-                     tcpPortForwarder.close();
-                     tcpPortForwarder = null;
-                  }
                }
             }
          }
@@ -95,39 +85,11 @@ public class LocalCommandExecutor extends AbstractObjectToolExecutor
             catch(InterruptedException e)
             {
             }
-            if (tcpPortForwarder != null)
-            {
-               tcpPortForwarder.close();
-               tcpPortForwarder = null;
-            }
          }
          processRunning = true;
       }
 
-      String commandLine;
-      if ((tool.getFlags() & ObjectTool.SETUP_TCP_TUNNEL) != 0)
-      {
-         tcpPortForwarder = new TcpPortForwarder(session, objectContext.object.getObjectId(), tool.getRemotePort(), 0);
-         tcpPortForwarder.setConsoleOutputStream(out);
-         tcpPortForwarder.run();
-         commandLine = command.replace("${local-port}", Integer.toString(tcpPortForwarder.getLocalPort()));
-      }
-      else
-      {
-         commandLine = command;
-      }
-
-      Process process;
-      if (Platform.getOS().equals(Platform.OS_WIN32))
-      {
-         commandLine = "CMD.EXE /C START \"NetXMS\" " + commandLine; //$NON-NLS-1$
-         process = Runtime.getRuntime().exec(command);
-      }
-      else
-      {
-         process = Runtime.getRuntime().exec(new String[] { "/bin/sh", "-c", commandLine }); //$NON-NLS-1$ //$NON-NLS-2$
-      }
-
+      process = Runtime.getRuntime().exec(command);
       InputStream in = process.getInputStream();
       try
       {
@@ -163,11 +125,6 @@ public class LocalCommandExecutor extends AbstractObjectToolExecutor
          {
             processRunning = false;
             process = null;
-            if (tcpPortForwarder != null)
-            {
-               tcpPortForwarder.close();
-               tcpPortForwarder = null;
-            }
             mutex.notifyAll();
          }
       }

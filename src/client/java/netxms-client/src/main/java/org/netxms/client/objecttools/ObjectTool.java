@@ -1,6 +1,6 @@
 /**
  * NetXMS - open source network management system
- * Copyright (C) 2003-2022 Victor Kirhenshtein
+ * Copyright (C) 2003-2021 Victor Kirhenshtein
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,7 +59,6 @@ public class ObjectTool implements ObjectAction
    public static final int SNMP_INDEXED_BY_VALUE     = 0x00000010;
    public static final int RUN_IN_CONTAINER_CONTEXT  = 0x00000020;
    public static final int SUPPRESS_SUCCESS_MESSAGE  = 0x00000040;
-   public static final int SETUP_TCP_TUNNEL          = 0x00000080;
 
    private static final Logger logger = LoggerFactory.getLogger(ObjectTool.class);
 
@@ -75,7 +74,6 @@ public class ObjectTool implements ObjectAction
    protected String commandShortName;
    protected ObjectMenuFilter filter;
 	protected byte[] imageData;
-   protected int remotePort;
 	protected Map<String, InputField> inputFields;
 
 	/**
@@ -106,7 +104,6 @@ public class ObjectTool implements ObjectAction
 		commandName = msg.getFieldAsString(baseId + 8);
       commandShortName = msg.getFieldAsString(baseId + 9);
 		imageData = msg.getFieldAsBinary(baseId + 10);
-      remotePort = msg.getFieldAsInt32(baseId + 11);
 		try
       {
          filter = ObjectMenuFilter.createFromXml(filterData);
@@ -117,10 +114,10 @@ public class ObjectTool implements ObjectAction
          if (!filterData.isEmpty())
             logger.debug("Cannot create ObjectMenuFilter object from XML document", e);
       }
-
-      int count = msg.getFieldAsInt32(baseId + 19);
+		
+		int count = msg.getFieldAsInt32(baseId + 11);
       inputFields = new HashMap<String, InputField>(count);
-
+      
 		long fieldId = baseId + 20;
 		for(int i = 0; i < count; i++)
 		{
@@ -128,7 +125,7 @@ public class ObjectTool implements ObjectAction
 		   inputFields.put(f.getName(), f);
 		   fieldId += 10;
 		}
-
+		
 		if ((type == TYPE_ACTION) || 
 		    (type == TYPE_FILE_DOWNLOAD) || 
 		    (type == TYPE_LOCAL_COMMAND) || 
@@ -273,20 +270,12 @@ public class ObjectTool implements ObjectAction
 	{
 		return flags;
 	}
-
+	
 	/**
-    * @return the remotePort
-    */
-   public int getRemotePort()
-   {
-      return remotePort;
-   }
-
-   /**
-    * Check if this tool should be visible in commands
-    * 
-    * @return true if this tool should be visible in commands
-    */
+	 * Check if this tool should be visible in commands
+	 * 
+	 * @return true if this tool should be visible in commands
+	 */
 	public boolean isVisibleInCommands()
 	{
 	   return (flags & SHOW_IN_COMMANDS) != 0;
@@ -418,18 +407,12 @@ public class ObjectTool implements ObjectAction
       return filter.toolTemplate;
    }
 
-   /**
-    * @see org.netxms.client.objecttools.ObjectAction#getMenuFilter()
-    */
    @Override
    public ObjectMenuFilter getMenuFilter()
    {
       return filter;
    }
 
-   /**
-    * @see org.netxms.client.objecttools.ObjectAction#setMenuFilter(org.netxms.client.ObjectMenuFilter)
-    */
    @Override
    public void setMenuFilter(ObjectMenuFilter filter)
    {

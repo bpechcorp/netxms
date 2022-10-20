@@ -1,6 +1,6 @@
 /**
  * NetXMS - open source network management system
- * Copyright (C) 2003-2022 Raden Solutions
+ * Copyright (C) 2003-2014 Victor Kirhenshtein
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,13 +18,15 @@
  */
 package org.netxms.ui.eclipse.objecttools.views;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.GroupMarker;
 import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.IToolBarManager;
@@ -32,8 +34,6 @@ import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.commands.ActionHandler;
 import org.eclipse.jface.dialogs.IDialogSettings;
-import org.eclipse.jface.dialogs.IInputValidator;
-import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.preference.PreferenceDialog;
 import org.eclipse.jface.preference.PreferenceManager;
 import org.eclipse.jface.preference.PreferenceNode;
@@ -57,11 +57,13 @@ import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.IViewSite;
+import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.contexts.IContextService;
 import org.eclipse.ui.dialogs.PropertyDialogAction;
 import org.eclipse.ui.handlers.IHandlerService;
 import org.eclipse.ui.part.ViewPart;
+import org.eclipse.ui.progress.UIJob;
 import org.netxms.client.AccessListElement;
 import org.netxms.client.NXCSession;
 import org.netxms.client.SessionListener;
@@ -71,6 +73,7 @@ import org.netxms.client.objecttools.ObjectToolDetails;
 import org.netxms.ui.eclipse.actions.RefreshAction;
 import org.netxms.ui.eclipse.console.resources.SharedIcons;
 import org.netxms.ui.eclipse.jobs.ConsoleJob;
+import org.netxms.ui.eclipse.objectbrowser.dialogs.CreateObjectDialog;
 import org.netxms.ui.eclipse.objecttools.Activator;
 import org.netxms.ui.eclipse.objecttools.Messages;
 import org.netxms.ui.eclipse.objecttools.dialogs.CreateNewToolDialog;
@@ -240,12 +243,12 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 		
       getSite().setSelectionProvider(viewer);
 
-      createActions();
-      contributeToActionBars();
-      createContextMenu();
-      activateContext();
-	
-      session.addListener(this);
+		createActions();
+		contributeToActionBars();
+		createPopupMenu();
+		activateContext();
+		
+		session.addListener(this);
 		
 		// Set initial focus to filter input line
       if (initShowFilter)
@@ -253,9 +256,9 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
       else
          enableFilter(false); // Will hide filter area correctly
 		
-      refresh();
+		refreshToolList();
 	}
-
+	
 	/**
     * Activate context
     */
@@ -289,6 +292,7 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
          filterText.setText("");
          onFilterModify();
       }
+
    }
 
    /**
@@ -300,42 +304,40 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
       filter.setFilterString(text);
       viewer.refresh(false);
    }
+	
+	 /**
+	 * @param selection
+	 * @return
+	 */
+	private boolean containsDisabled(IStructuredSelection selection)
+    {
+       List<?> l = selection.toList();
+       for (int i = 0; i < l.size(); i++)
+          if ((((ObjectTool)l.get(i)).getFlags() & ObjectTool.DISABLED) > 0)
+                return true;
+       return false;
+    }
 
-   /**
-    * Check if selection contains disabled object tools.
-    *
-    * @param selection selection to check
-    * @return true if selection contains disabled object tools
+    /**
+    * @param selection
+    * @return
     */
-   private static boolean containsDisabled(IStructuredSelection selection)
-   {
-      for(Object o : selection.toList())
-         if (!((ObjectTool)o).isEnabled())
-            return true;
-      return false;
-   }
+   private boolean containsEnabled(IStructuredSelection selection)
+    {
+       List<?> l = selection.toList();
+       for (int i = 0; i < l.size(); i++)
+          if ((((ObjectTool)l.get(i)).getFlags() & ObjectTool.DISABLED) == 0)
+             return true;
+       return false;
+    }
 
-   /**
-    * Check if selection contains enabled object tools.
-    *
-    * @param selection selection to check
-    * @return true if selection contains enabled object tools
-    */
-   private static boolean containsEnabled(IStructuredSelection selection)
-   {
-      for(Object o : selection.toList())
-         if (((ObjectTool)o).isEnabled())
-            return true;
-      return false;
-   }
-
-   /**
-    * Create actions
-    */
-   private void createActions()
-   {
-      final IHandlerService handlerService = (IHandlerService)getSite().getService(IHandlerService.class);
-
+	/**
+	 * Create actions
+	 */
+	private void createActions()
+	{
+	   final IHandlerService handlerService = (IHandlerService)getSite().getService(IHandlerService.class);
+	   
       actionShowFilter = new Action("Show filter", Action.AS_CHECK_BOX) {
          @Override
          public void run()
@@ -344,19 +346,18 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
             actionShowFilter.setChecked(initShowFilter);
          }
       };
-      actionShowFilter.setImageDescriptor(SharedIcons.FILTER);
       actionShowFilter.setChecked(initShowFilter);
       actionShowFilter.setActionDefinitionId("org.netxms.ui.eclipse.objecttools.commands.showFilter"); //$NON-NLS-1$
       handlerService.activateHandler(actionShowFilter.getActionDefinitionId(), new ActionHandler(actionShowFilter));
 
-      actionRefresh = new RefreshAction(this) {
+		actionRefresh = new RefreshAction() {
 			@Override
 			public void run()
 			{
-            refresh();
+				refreshToolList();
 			}
 		};
-
+		
 		actionNew = new Action(Messages.get().ObjectToolsEditor_New) {
 			@Override
 			public void run()
@@ -370,15 +371,15 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 			@Override
 			public void run()
 			{
-            IStructuredSelection selection = viewer.getStructuredSelection();
+				IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
 				if (selection.size() != 1)
 					return;
-
+				
 				// Check if we have details loaded or can load before showing properties dialog
 				// If there will be error, adapter factory will show error message to user
 				if (Platform.getAdapterManager().getAdapter(selection.getFirstElement(), ObjectToolDetails.class) == null)
 					return;
-
+				
 		      ObjectToolDetails objectToolDetails = (ObjectToolDetails)Platform.getAdapterManager().getAdapter(selection.getFirstElement(), ObjectToolDetails.class);   
 		      if (showObjectToolPropertyPages(objectToolDetails))
 		      {
@@ -387,32 +388,32 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 			}
 		};
 		actionEdit.setImageDescriptor(SharedIcons.EDIT);
-
-      actionDelete = new Action(Messages.get().ObjectToolsEditor_Delete) {
+		
+		actionDelete = new Action(Messages.get().ObjectToolsEditor_Delete) {
+			@Override
+			public void run()
+			{
+				deleteTools();
+			}
+		};
+		actionDelete.setImageDescriptor(SharedIcons.DELETE_OBJECT);
+		
+		actionDisable = new Action(Messages.get().ObjectToolsEditor_Disable) {
          @Override
          public void run()
          {
-            deleteTools();
+            disableSelectedTools();
          }
       };
-      actionDelete.setImageDescriptor(SharedIcons.DELETE_OBJECT);
-
-      actionDisable = new Action(Messages.get().ObjectToolsEditor_Disable) {
-         @Override
-         public void run()
-         {
-            enableTools(false);
-         }
-      };
-
+      
       actionEnable = new Action(Messages.get().ObjectToolsEditor_Enable) {
          @Override
          public void run()
          {
-            enableTools(true);
+            enableSelectedTools();
          }
       };
-
+      
       actionClone = new Action(Messages.get().ObjectToolsEditor_Clone) {
          @Override
          public void run()
@@ -420,7 +421,7 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
             cloneTool();
          }
       };
-   }
+	}
 
 	/**
 	 * Contribute actions to action bar
@@ -441,7 +442,9 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 	private void fillLocalPullDown(IMenuManager manager)
 	{
 		manager.add(actionNew);
-		manager.add(new Separator());
+		manager.add(actionDelete);
+      manager.add(actionClone);
+		manager.add(actionEdit);
 		manager.add(actionShowFilter);
 		manager.add(new Separator());
 		manager.add(actionRefresh);
@@ -456,43 +459,47 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 	private void fillLocalToolBar(IToolBarManager manager)
 	{
 		manager.add(actionNew);
-		manager.add(new Separator());
-		manager.add(actionShowFilter);
+		manager.add(actionDelete);
+		manager.add(actionEdit);
 		manager.add(new Separator());
 		manager.add(actionRefresh);
 	}
+	
+	/**
+	 * Create pop-up menu for user list
+	 */
+	private void createPopupMenu()
+	{
+		// Create menu manager
+		MenuManager menuMgr = new MenuManager();
+		menuMgr.setRemoveAllWhenShown(true);
+		menuMgr.addMenuListener(new IMenuListener() {
+			public void menuAboutToShow(IMenuManager mgr)
+			{
+				fillContextMenu(mgr);
+			}
+		});
 
-   /**
-    * Create context menu for tool list
-    */
-   private void createContextMenu()
-   {
-      // Create menu manager
-      MenuManager menuMgr = new MenuManager();
-      menuMgr.setRemoveAllWhenShown(true);
-      menuMgr.addMenuListener(new IMenuListener() {
-         public void menuAboutToShow(IMenuManager mgr)
-         {
-            fillContextMenu(mgr);
-         }
-      });
+		// Create menu
+		Menu menu = menuMgr.createContextMenu(viewer.getControl());
+		viewer.getControl().setMenu(menu);
 
-      // Create menu
-      Menu menu = menuMgr.createContextMenu(viewer.getControl());
-      viewer.getControl().setMenu(menu);
-   }
+		// Register menu for extension.
+		getSite().registerContextMenu(menuMgr, viewer);
+	}
 
-   /**
-    * Fill context menu
-    * 
-    * @param mgr Menu manager
-    */
-   protected void fillContextMenu(final IMenuManager mgr)
-   {
-      mgr.add(actionNew);
-      mgr.add(actionEdit);
-      mgr.add(actionClone);
-      IStructuredSelection selection = viewer.getStructuredSelection();
+	/**
+	 * Fill context menu
+	 * 
+	 * @param mgr Menu manager
+	 */
+	protected void fillContextMenu(final IMenuManager mgr)
+	{
+		mgr.add(actionNew);
+		mgr.add(actionDelete);
+      mgr.add(actionClone);  
+		mgr.add(new Separator());
+		IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
       if (containsEnabled(selection))
       {
          mgr.add(actionDisable);
@@ -501,24 +508,31 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
       {
          mgr.add(actionEnable);
       }
-      mgr.add(actionDelete);
-   }
+		mgr.add(new Separator());
+		mgr.add(new GroupMarker(IWorkbenchActionConstants.MB_ADDITIONS));
+		mgr.add(new Separator());
+      mgr.add(actionEdit);   
+	}
 
 	/**
 	 * Refresh tool list
 	 */
-	private void refresh()
+	private void refreshToolList()
 	{
 		new ConsoleJob(Messages.get().ObjectToolsEditor_JobGetConfig, this, Activator.PLUGIN_ID) {
 			@Override
 			protected void runInternal(IProgressMonitor monitor) throws Exception
 			{
 				final List<ObjectTool> tl = session.getObjectTools();
-            runInUIThread(() -> {
-               tools.clear();
-               for(ObjectTool t : tl)
-                  tools.put(t.getId(), t);
-               viewer.setInput(tools.values().toArray());
+				runInUIThread(new Runnable() {
+					@Override
+					public void run()
+					{
+						tools.clear();
+						for(ObjectTool t : tl)
+							tools.put(t.getId(), t);
+						viewer.setInput(tools.values().toArray());
+					}
 				});
 			}
 
@@ -529,7 +543,7 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 			}
 		}.start();
 	}
-
+	
 	/**
 	 * Create new tool
 	 */
@@ -545,12 +559,16 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 					final long toolId = session.generateObjectToolId();
 					final ObjectToolDetails details = new ObjectToolDetails(toolId, dlg.getType(), dlg.getName());
 					session.modifyObjectTool(details);
-               runInUIThread(() -> {
-                  if (showObjectToolPropertyPages(details))
-                  {
-                     if (details.isModified())
-                        saveObjectTool(details);
-                  }
+					runInUIThread(new Runnable() {
+						@Override
+						public void run()
+						{
+						   if (showObjectToolPropertyPages(details))
+			            {
+	                     if (details.isModified())
+	                        saveObjectTool(details);
+			            }
+						}
 					});
 				}
 
@@ -562,13 +580,13 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 			}.start();
 		}
 	}
-
+	
 	/**
 	 * Delete selected tools
 	 */
 	private void deleteTools()
 	{
-      IStructuredSelection selection = viewer.getStructuredSelection();
+		IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
 		if (selection.isEmpty())
 			return;
 		
@@ -593,7 +611,7 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 			}
 		}.start();
 	}
-
+	
 	/**
 	 * Save object tool configuration on server
 	 * 
@@ -617,33 +635,67 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
 	}
 
    /**
-    * Enable/disable selected object tools
+    * Disable selected object tools
     */
-   private void enableTools(final boolean enable)
+   private void disableSelectedTools()
    {
-      IStructuredSelection selection = viewer.getStructuredSelection();
+      IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
       if (selection.isEmpty())
          return;
 
-      final List<Long> toolIdList = new ArrayList<>(selection.size());
-      for(Object o : selection.toList())
-      {
-         if (((ObjectTool)o).isEnabled() != enable)
-            toolIdList.add(((ObjectTool)o).getId());
-      }
+      if (!MessageDialogHelper.openConfirm(getSite().getShell(), Messages.get().ObjectToolsEditor_Confirmation,
+            Messages.get().ObjectToolsEditor_AckToDisableObjectTool))
+         return;
 
-      new ConsoleJob(enable ? Messages.get().ObjectToolsEditor_EnableObjTool : Messages.get().ObjectToolsEditor_DisableObjTool, this, Activator.PLUGIN_ID) {
-         @Override
-         protected void runInternal(IProgressMonitor monitor) throws Exception
-         {
-            for(long toolId : toolIdList)
-               session.enableObjectTool(toolId, enable);
-         }
-
+      final Object[] objects = selection.toArray();
+      new ConsoleJob(Messages.get().ObjectToolsEditor_DisableObjTool, this, Activator.PLUGIN_ID) {
          @Override
          protected String getErrorMessage()
          {
             return Messages.get().ObjectToolsEditor_ErrorDisablingObjectTools;
+         }
+
+         @Override
+         protected void runInternal(IProgressMonitor monitor) throws Exception
+         {
+            for(int i = 0; i < objects.length; i++)
+            {
+               if ((((ObjectTool)objects[i]).getFlags() & ObjectTool.DISABLED) == 0)
+                  session.changeObjecToolDisableStatuss(((ObjectTool)objects[i]).getId(), false);
+            }
+         }
+      }.start();
+   }
+
+   /**
+    * Enable selected object tools
+    */
+   private void enableSelectedTools()
+   {
+      IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
+      if (selection.isEmpty())
+         return;
+
+      if (!MessageDialogHelper.openConfirm(getSite().getShell(), Messages.get().ObjectToolsEditor_Confirmation,
+            Messages.get().ObjectToolsEditor_AckToEnableObjTool))
+         return;
+
+      final Object[] objects = selection.toArray();
+      new ConsoleJob(Messages.get().ObjectToolsEditor_EnableObjTool, this, Activator.PLUGIN_ID) {
+         @Override
+         protected String getErrorMessage()
+         {
+            return Messages.get().ObjectToolsEditor_ErrorDisablingObjTools;
+         }
+
+         @Override
+         protected void runInternal(IProgressMonitor monitor) throws Exception
+         {
+            for(int i = 0; i < objects.length; i++)
+            {
+               if ((((ObjectTool)objects[i]).getFlags() & ObjectTool.DISABLED) > 0)
+                  session.changeObjecToolDisableStatuss(((ObjectTool)objects[i]).getId(), true);
+            }
          }
       }.start();
    }
@@ -653,39 +705,32 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
     */
    private void cloneTool()
    {
-      final IStructuredSelection selection = viewer.getStructuredSelection();
-      if (selection.size() != 1)
+      final IStructuredSelection selection = (IStructuredSelection)viewer.getSelection();
+      if (selection.isEmpty())
          return;
 
-      final ObjectTool currentTool = (ObjectTool)selection.getFirstElement();
+      final CreateObjectDialog dlg = new CreateObjectDialog(getSite().getShell(), Messages.get().ObjectToolsEditor_ObjectTool);
+      if (dlg.open() == Window.OK)
+      {
+         new ConsoleJob(Messages.get().ObjectToolsEditor_CloneObjectTool, this, Activator.PLUGIN_ID) {
+            @Override
+            protected void runInternal(IProgressMonitor monitor) throws Exception
+            {
+               final long toolId = session.generateObjectToolId();
+               ObjectTool objTool = (ObjectTool)selection.toArray()[0];
+               ObjectToolDetails details = session.getObjectToolDetails(objTool.getId());
+               details.setId(toolId);
+               details.setName(dlg.getObjectName());
+               session.modifyObjectTool(details);
+            }
 
-      final InputDialog dlg = new InputDialog(getSite().getShell(), "Clone Object Tool", "Enter name for cloned object tool", currentTool.getName() + "2", new IInputValidator() {
-         @Override
-         public String isValid(String newText)
-         {
-            return newText.isBlank() ? "Name should not be blank" : null;
-         }
-      });
-      if (dlg.open() != Window.OK)
-         return;
-
-      new ConsoleJob(Messages.get().ObjectToolsEditor_CloneObjectTool, this, Activator.PLUGIN_ID) {
-         @Override
-         protected void runInternal(IProgressMonitor monitor) throws Exception
-         {
-            final long toolId = session.generateObjectToolId();
-            ObjectToolDetails details = session.getObjectToolDetails(currentTool.getId());
-            details.setId(toolId);
-            details.setName(dlg.getValue());
-            session.modifyObjectTool(details);
-         }
-
-         @Override
-         protected String getErrorMessage()
-         {
-            return Messages.get().ObjectToolsEditor_CloneError;
-         }
-      }.start();
+            @Override
+            protected String getErrorMessage()
+            {
+               return Messages.get().ObjectToolsEditor_CloneError;
+            }
+         }.start();
+      }
    }
 
    /**
@@ -700,37 +745,40 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
    /**
     * @see org.netxms.api.client.SessionListener#notificationHandler(org.netxms.api.client.SessionNotification)
     */
-   @Override
-   public void notificationHandler(final SessionNotification n)
-   {
-      switch(n.getCode())
-      {
-         case SessionNotification.OBJECT_TOOLS_CHANGED:
-            getSite().getShell().getDisplay().asyncExec(() -> {
-               refresh();
-            });
-            break;
-         case SessionNotification.OBJECT_TOOL_DELETED:
-            getSite().getShell().getDisplay().asyncExec(() -> {
-               tools.remove(n.getSubCode());
-               viewer.setInput(tools.values().toArray());
-            });
-            break;
-      }
-   }
+	@Override
+	public void notificationHandler(final SessionNotification n)
+	{
+		switch(n.getCode())
+		{
+			case SessionNotification.OBJECT_TOOLS_CHANGED:
+				refreshToolList();
+				break;
+			case SessionNotification.OBJECT_TOOL_DELETED:
+				new UIJob(getSite().getShell().getDisplay(), "Delete object tool from list") { //$NON-NLS-1$
+					@Override
+					public IStatus runInUIThread(IProgressMonitor monitor)
+					{
+						tools.remove(n.getSubCode());
+						viewer.setInput(tools.values().toArray());
+						return Status.OK_STATUS;
+					}
+				}.schedule();
+				break;
+		}
+	}
 
    /**
     * @see org.eclipse.ui.part.WorkbenchPart#dispose()
     */
-   @Override
-   public void dispose()
-   {
-      session.removeListener(this);
+	@Override
+	public void dispose()
+	{
+		session.removeListener(this);
 		IDialogSettings settings = Activator.getDefault().getDialogSettings();
 		settings.put("ObjectTools.showFilter", initShowFilter);
-      super.dispose();
-   }
-
+		super.dispose();
+	}
+	   
    /**
     * Show Object tools configuration dialog
     * 
@@ -739,14 +787,14 @@ public class ObjectToolsEditor extends ViewPart implements SessionListener
     */
    private boolean showObjectToolPropertyPages(final ObjectToolDetails objectTool)
    {
-      PreferenceManager pm = new PreferenceManager();
+      PreferenceManager pm = new PreferenceManager();    
       pm.addToRoot(new PreferenceNode("general", new General(objectTool)));
       pm.addToRoot(new PreferenceNode("access_control", new AccessControl(objectTool)));
       pm.addToRoot(new PreferenceNode("filter", new Filter(objectTool)));
       pm.addToRoot(new PreferenceNode("input_fields", new InputFields(objectTool)));
       if (objectTool.getToolType() == ObjectTool.TYPE_AGENT_LIST || objectTool.getToolType() == ObjectTool.TYPE_SNMP_TABLE)
          pm.addToRoot(new PreferenceNode("columns", new Columns(objectTool)));
-
+      
       PreferenceDialog dlg = new PreferenceDialog(getViewSite().getShell(), pm) {
          @Override
          protected void configureShell(Shell newShell)

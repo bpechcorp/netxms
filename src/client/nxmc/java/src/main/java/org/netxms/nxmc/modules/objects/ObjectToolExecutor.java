@@ -18,6 +18,7 @@
  */
 package org.netxms.nxmc.modules.objects;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -55,6 +56,8 @@ import org.netxms.nxmc.modules.objects.views.ServerScriptResults;
 import org.netxms.nxmc.modules.objects.views.TableToolResults;
 import org.netxms.nxmc.tools.ExternalWebBrowser;
 import org.netxms.nxmc.tools.MessageDialogHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xnap.commons.i18n.I18n;
 
 /**
@@ -63,6 +66,7 @@ import org.xnap.commons.i18n.I18n;
 public final class ObjectToolExecutor
 {
    private static final I18n i18n = LocalizationHelper.getI18n(ObjectToolExecutor.class);
+   private static final Logger logger = LoggerFactory.getLogger(ObjectToolExecutor.class);
 
    /**
     * Private constructor to forbid instantiation 
@@ -375,7 +379,7 @@ public final class ObjectToolExecutor
             executeTableTool(node, tool, viewPlacement);
             break;
          case ObjectTool.TYPE_URL:
-            openURL(node, tool, expandedToolData, viewPlacement);
+            openURL(expandedToolData);
             break;
       }
    }
@@ -603,6 +607,7 @@ public final class ObjectToolExecutor
       }
    }
 
+   
    /**
     * Execute server script
     * 
@@ -655,7 +660,7 @@ public final class ObjectToolExecutor
          }
       }
    }
-
+   
    /**
     * Execute local command
     * 
@@ -665,56 +670,28 @@ public final class ObjectToolExecutor
     * @param command command to execute
     * @param viewPlacement view placement information
     */
-   private static void executeLocalCommand(final ObjectContext node, final ObjectTool tool, Map<String, String> inputValues, final String command, ViewPlacement viewPlacement)
+   private static void executeLocalCommand(final ObjectContext node, final ObjectTool tool, Map<String, String> inputValues, String command, ViewPlacement viewPlacement)
    {      
       if ((tool.getFlags() & ObjectTool.GENERATES_OUTPUT) == 0)
       {
-         Job job = new Job(i18n.tr("Execute external command"), null, viewPlacement.getMessageAreaHolder()) {
-            @Override
-            protected void run(IProgressMonitor monitor) throws Exception
+         try
+         {
+            if (SystemUtils.IS_OS_WINDOWS)
             {
-               TcpPortForwarder tcpPortForwarder = null;
-               try
-               {
-                  String commandLine = command;
-                  if (node.isNode() && ((tool.getFlags() & ObjectTool.SETUP_TCP_TUNNEL) != 0))
-                  {
-                     tcpPortForwarder = new TcpPortForwarder(Registry.getSession(), node.object.getObjectId(), tool.getRemotePort(), 0);
-                     tcpPortForwarder.setDisplay(getDisplay());
-                     tcpPortForwarder.setMessageArea(viewPlacement.getMessageAreaHolder());
-                     tcpPortForwarder.run();
-                     commandLine = commandLine.replace("${local-port}", Integer.toString(tcpPortForwarder.getLocalPort()));
-                  }
-
-                  Process process;
-                  if (SystemUtils.IS_OS_WINDOWS)
-                  {
-                     commandLine = "CMD.EXE /C START \"NetXMS\" " + commandLine;
-                     process = Runtime.getRuntime().exec(command);
-                  }
-                  else
-                  {
-                     process = Runtime.getRuntime().exec(new String[] { "/bin/sh", "-c", commandLine });
-                  }
-
-                  if (tcpPortForwarder != null)
-                     process.waitFor();
-               }
-               finally
-               {
-                  if (tcpPortForwarder != null)
-                     tcpPortForwarder.close();
-               }
+               command = "CMD.EXE /C START \"NetXMS\" " + command;
+               Runtime.getRuntime().exec(command);
             }
-
-            @Override
-            protected String getErrorMessage()
+            else
             {
-               return "Cannot execute external process";
+               Runtime.getRuntime().exec(new String[] { "/bin/sh", "-c", command });
             }
-         };
-         job.setUser(false);
-         job.start();
+         }
+         catch(IOException e)
+         {
+            logger.error("Exception while executing local command", e);
+            String m = e.getLocalizedMessage();
+            viewPlacement.getMessageAreaHolder().addMessage(MessageArea.ERROR, i18n.tr("Cannot execute local command") + (((m != null) && !m.isEmpty()) ? " (" + m + ")" : ""));
+         }
       }
       else
       {
@@ -813,37 +790,8 @@ public final class ObjectToolExecutor
     * @param tool
     * @param inputValues 
     */
-   private static void openURL(final ObjectContext node, final ObjectTool tool, final String url, ViewPlacement viewPlacement)
+   private static void openURL(String url)
    {
-      if (node.isNode() && ((tool.getFlags() & ObjectTool.SETUP_TCP_TUNNEL) != 0))
-      {
-         final NXCSession session = Registry.getSession();
-         Job job = new Job(i18n.tr("Setup TCP port forwarding"), null, viewPlacement.getMessageAreaHolder()) {
-            @Override
-            protected void run(IProgressMonitor monitor) throws Exception
-            {
-               TcpPortForwarder tcpPortForwarder = new TcpPortForwarder(session, node.object.getObjectId(), tool.getRemotePort(), 600000); // Close underlying proxy after 10 minutes of inactivity
-               tcpPortForwarder.setDisplay(getDisplay());
-               tcpPortForwarder.setMessageArea(viewPlacement.getMessageAreaHolder());
-               tcpPortForwarder.run();
-               final String realUrl = url.replace("${local-address}", ExternalWebBrowser.getLocalAddress(getDisplay())).replace("${local-port}", Integer.toString(tcpPortForwarder.getLocalPort()));
-               runInUIThread(() -> {
-                  ExternalWebBrowser.open(realUrl);
-               });
-            }
-
-            @Override
-            protected String getErrorMessage()
-            {
-               return i18n.tr("Cannot setup TCP port forwarding");
-            }
-         };
-         job.setUser(false);
-         job.start();
-      }
-      else
-      {
-         ExternalWebBrowser.open(url);
-      }
+      ExternalWebBrowser.open(url);
    }
 }

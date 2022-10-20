@@ -30,6 +30,7 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 import org.netxms.client.TextOutputListener;
 import org.netxms.client.objecttools.ObjectTool;
+import org.netxms.nxmc.Registry;
 import org.netxms.nxmc.base.jobs.Job;
 import org.netxms.nxmc.base.widgets.TextConsole.IOConsoleOutputStream;
 import org.netxms.nxmc.localization.LocalizationHelper;
@@ -40,17 +41,17 @@ import org.xnap.commons.i18n.I18n;
 /**
  * View for server command execution results
  */
-public class ServerCommandResults extends AbstractCommandResultView implements TextOutputListener
+public class ServerCommandResults extends AbstractCommandResults implements TextOutputListener
 {
    private static final I18n i18n = LocalizationHelper.getI18n(ServerCommandResults.class);
-
+   
    private IOConsoleOutputStream out;
    private String lastCommand = null;
    private Action actionRestart;
    private Action actionStop;
    private long streamId = 0;
    private boolean isRunning = false;
-
+   
    /**
     * Constructor
     * 
@@ -70,6 +71,7 @@ public class ServerCommandResults extends AbstractCommandResultView implements T
    protected void createActions()
    {
       super.createActions();
+      session = Registry.getSession();
       
       actionRestart = new Action(i18n.tr("&Restart"), SharedIcons.RESTART) {
          @Override
@@ -127,9 +129,6 @@ public class ServerCommandResults extends AbstractCommandResultView implements T
       super.fillContextMenu(manager);
    }
    
-   /**
-    * @see org.netxms.nxmc.modules.objects.views.AbstractCommandResultView#execute()
-    */
    @Override
    public void execute()
    {
@@ -138,7 +137,7 @@ public class ServerCommandResults extends AbstractCommandResultView implements T
          MessageDialog.openError(Display.getCurrent().getActiveShell(), "Error", "Command already running!");
          return;
       }
-
+      
       isRunning = true;
       actionRestart.setEnabled(false);
       actionStop.setEnabled(true);
@@ -186,7 +185,7 @@ public class ServerCommandResults extends AbstractCommandResultView implements T
       job.setSystem(true);
       job.start();
    }
-
+   
    /**
     * Stops running server command
     */

@@ -810,18 +810,18 @@ public abstract class AbstractNode extends DataCollectionTarget implements Hardw
 		return driverVersion;
 	}
 
-   /**
-    * @see org.netxms.client.objects.interfaces.ZoneMember#getZoneId()
-    */
+	/* (non-Javadoc)
+	 * @see org.netxms.client.objects.ZoneMember#getZoneId()
+	 */
 	@Override
 	public int getZoneId()
 	{
 		return zoneId;
 	}
-
-   /**
-    * @see org.netxms.client.objects.interfaces.ZoneMember#getZoneName()
-    */
+	
+	/* (non-Javadoc)
+	 * @see org.netxms.client.objects.ZoneMember#getZoneName()
+	 */
 	@Override
 	public String getZoneName()
 	{

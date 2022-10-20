@@ -612,7 +612,7 @@ uint32_t ExecuteTableTool(uint32_t toolId, const shared_ptr<Node>& node, uint32_
 /**
  * Delete object tool from database
  */
-uint32_t DeleteObjectToolFromDB(uint32_t toolId)
+UINT32 DeleteObjectToolFromDB(UINT32 toolId)
 {
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
 
@@ -663,7 +663,7 @@ uint32_t DeleteObjectToolFromDB(uint32_t toolId)
 /**
  * Change Object Tool Disable status to opposit
  */
-uint32_t ChangeObjectToolStatus(uint32_t toolId, bool enabled)
+UINT32 ChangeObjectToolStatus(UINT32 toolId, bool enabled)
 {
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
 
@@ -674,8 +674,8 @@ uint32_t ChangeObjectToolStatus(uint32_t toolId, bool enabled)
       return RCC_DB_FAILURE;
    }
 
-   uint32_t rcc = RCC_SUCCESS;
-   uint32_t flags = 0;
+   UINT32 rcc = RCC_SUCCESS;
+   UINT32 flags = 0;
 
    DBBind(hStmt, 1, DB_SQLTYPE_INTEGER, toolId);
    DB_RESULT hResult = DBSelectPrepared(hStmt);
@@ -725,6 +725,7 @@ uint32_t ChangeObjectToolStatus(uint32_t toolId, bool enabled)
 uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
 {
    TCHAR buffer[MAX_DB_STRING];
+   UINT32 i, aclSize, *pdwAcl;
 
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
 
@@ -735,8 +736,8 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
 	}
 
    // Insert or update common properties
-   int toolType = msg.getFieldAsUInt16(VID_TOOL_TYPE);
-   uint32_t toolId = msg.getFieldAsUInt32(VID_TOOL_ID);
+   int nType = msg.getFieldAsUInt16(VID_TOOL_TYPE);
+   UINT32 toolId = msg.getFieldAsUInt32(VID_TOOL_ID);
    bool newTool = false;
    DB_STATEMENT hStmt;
    if (IsDatabaseRecordExist(hdb, _T("object_tools"), _T("tool_id"), toolId))
@@ -744,7 +745,7 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
       hStmt = DBPrepare(hdb, _T("UPDATE object_tools SET tool_name=?,tool_type=?,")
                              _T("tool_data=?,description=?,flags=?,")
                              _T("tool_filter=?,confirmation_text=?,command_name=?,")
-                             _T("command_short_name=?,icon=?,remote_port=? ")
+                             _T("command_short_name=?,icon=? ")
                              _T("WHERE tool_id=?"));
    }
    else
@@ -752,15 +753,15 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
       hStmt = DBPrepare(hdb, _T("INSERT INTO object_tools (tool_name,tool_type,")
                              _T("tool_data,description,flags,tool_filter,")
                              _T("confirmation_text,command_name,command_short_name,")
-                             _T("icon,remote_port,tool_id,guid) VALUES ")
-                             _T("(?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+                             _T("icon,tool_id,guid) VALUES ")
+                             _T("(?,?,?,?,?,?,?,?,?,?,?,?)"));
       newTool = true;
    }
    if (hStmt == nullptr)
       return ReturnDBFailure(hdb, hStmt);
 
    DBBind(hStmt, 1, DB_SQLTYPE_VARCHAR, msg.getFieldAsString(VID_NAME), DB_BIND_DYNAMIC);
-   DBBind(hStmt, 2, DB_SQLTYPE_INTEGER, toolType);
+   DBBind(hStmt, 2, DB_SQLTYPE_INTEGER, nType);
    DBBind(hStmt, 3, DB_SQLTYPE_TEXT, msg.getFieldAsString(VID_TOOL_DATA), DB_BIND_DYNAMIC);
    DBBind(hStmt, 4, DB_SQLTYPE_VARCHAR, msg.getFieldAsString(VID_DESCRIPTION), DB_BIND_DYNAMIC);
    DBBind(hStmt, 5, DB_SQLTYPE_INTEGER, msg.getFieldAsUInt32(VID_FLAGS));
@@ -782,11 +783,10 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
       DBBind(hStmt, 10, DB_SQLTYPE_TEXT, _T(""), DB_BIND_STATIC);
    }
 
-   DBBind(hStmt, 11, DB_SQLTYPE_INTEGER, msg.getFieldAsUInt32(VID_PORT));
-   DBBind(hStmt, 12, DB_SQLTYPE_INTEGER, toolId);
+   DBBind(hStmt, 11, DB_SQLTYPE_INTEGER, toolId);
    if (newTool)
    {
-      DBBind(hStmt, 13, DB_SQLTYPE_VARCHAR, uuid::generate());
+      DBBind(hStmt, 12, DB_SQLTYPE_VARCHAR, uuid::generate());
    }
 
    if (!DBExecute(hStmt))
@@ -802,22 +802,23 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
       return ReturnDBFailure(hdb, hStmt);
    DBFreeStatement(hStmt);
 
-   int aclSize = msg.getFieldAsInt32(VID_ACL_SIZE);
+   aclSize = msg.getFieldAsUInt32(VID_ACL_SIZE);
    if (aclSize > 0)
    {
-      Buffer<uint32_t, 256> acl(aclSize);
-      msg.getFieldAsInt32Array(VID_ACL, aclSize, acl);
+      pdwAcl = MemAllocArray<UINT32>(aclSize);
+      msg.getFieldAsInt32Array(VID_ACL, aclSize, pdwAcl);
       hStmt = DBPrepare(hdb, _T("INSERT INTO object_tools_acl (tool_id,user_id) VALUES (?,?)"), aclSize > 1);
       if (hStmt == nullptr)
          return ReturnDBFailure(hdb, hStmt);
       DBBind(hStmt, 1, DB_SQLTYPE_INTEGER, toolId);
-      for(int i = 0; i < aclSize; i++)
+      for(i = 0; i < aclSize; i++)
       {
-         DBBind(hStmt, 2, DB_SQLTYPE_INTEGER, acl[i]);
+         DBBind(hStmt, 2, DB_SQLTYPE_INTEGER, pdwAcl[i]);
          if(!DBExecute(hStmt))
             return ReturnDBFailure(hdb, hStmt);
       }
       DBFreeStatement(hStmt);
+      MemFree(pdwAcl);
    }
 
    // Update columns configuration
@@ -830,7 +831,7 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
       return ReturnDBFailure(hdb, hStmt);
    DBFreeStatement(hStmt);
 
-   if ((toolType == TOOL_TYPE_SNMP_TABLE) || (toolType == TOOL_TYPE_AGENT_LIST))
+   if ((nType == TOOL_TYPE_SNMP_TABLE) || (nType == TOOL_TYPE_AGENT_LIST))
    {
       uint32_t numColumns = msg.getFieldAsUInt16(VID_NUM_COLUMNS);
       if (numColumns > 0)
@@ -841,7 +842,8 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
          if (hStmt == nullptr)
             return ReturnDBFailure(hdb, hStmt);
 
-         for(uint32_t i = 0, fieldId = VID_COLUMN_INFO_BASE; i < numColumns; i++)
+         uint32_t fieldId;
+         for(i = 0, fieldId = VID_COLUMN_INFO_BASE; i < numColumns; i++)
          {
             msg.getFieldAsString(fieldId++, buffer, MAX_DB_STRING);
 
@@ -876,7 +878,8 @@ uint32_t UpdateObjectToolFromMessage(const NXCPMessage& msg)
          return ReturnDBFailure(hdb, hStmt);
       DBBind(hStmt, 1, DB_SQLTYPE_INTEGER, toolId);
 
-      for(uint32_t i = 0, fieldId = VID_FIELD_LIST_BASE; i < numFields; i++)
+      uint32_t fieldId = VID_FIELD_LIST_BASE;
+      for(i = 0; i < numFields; i++)
       {
          DBBind(hStmt, 2, DB_SQLTYPE_VARCHAR, msg.getFieldAsString(fieldId++), DB_BIND_DYNAMIC);
          DBBind(hStmt, 3, DB_SQLTYPE_INTEGER, msg.getFieldAsUInt16(fieldId++));
@@ -968,7 +971,7 @@ bool ImportObjectTool(ConfigEntry *config, bool overwrite)
       hStmt = DBPrepare(hdb, _T("UPDATE object_tools SET tool_name=?,tool_type=?,")
                              _T("tool_data=?,description=?,flags=?,")
                              _T("tool_filter=?,confirmation_text=?,command_name=?,")
-                             _T("command_short_name=?,icon=?,remote_port=? ")
+                             _T("command_short_name=?,icon=? ")
                              _T("WHERE tool_id=?"));
    }
    else
@@ -976,8 +979,8 @@ bool ImportObjectTool(ConfigEntry *config, bool overwrite)
       hStmt = DBPrepare(hdb, _T("INSERT INTO object_tools (tool_name,tool_type,")
                              _T("tool_data,description,flags,tool_filter,")
                              _T("confirmation_text,command_name,command_short_name,")
-                             _T("icon,remote_port,tool_id,guid) VALUES ")
-                             _T("(?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+                             _T("icon,tool_id,guid) VALUES ")
+                             _T("(?,?,?,?,?,?,?,?,?,?,?,?)"));
    }
    if (hStmt == nullptr)
       return ImportFailure(hdb, nullptr);
@@ -992,16 +995,15 @@ bool ImportObjectTool(ConfigEntry *config, bool overwrite)
    DBBind(hStmt, 8, DB_SQLTYPE_VARCHAR, config->getSubEntryValue(_T("commandName")), DB_BIND_STATIC);
    DBBind(hStmt, 9, DB_SQLTYPE_VARCHAR, config->getSubEntryValue(_T("commandShortName")), DB_BIND_STATIC);
    DBBind(hStmt, 10, DB_SQLTYPE_TEXT, config->getSubEntryValue(_T("image")), DB_BIND_STATIC);
-   DBBind(hStmt, 11, DB_SQLTYPE_INTEGER, config->getSubEntryValueAsInt(_T("remotePort")));
    if (toolId == 0)
    {
       toolId = CreateUniqueId(IDG_OBJECT_TOOL);
-      DBBind(hStmt, 12, DB_SQLTYPE_INTEGER, toolId);
-      DBBind(hStmt, 13, DB_SQLTYPE_VARCHAR, guid, DB_BIND_STATIC);
+      DBBind(hStmt, 11, DB_SQLTYPE_INTEGER, toolId);
+      DBBind(hStmt, 12, DB_SQLTYPE_VARCHAR, guid, DB_BIND_STATIC);
    }
    else
    {
-      DBBind(hStmt, 12, DB_SQLTYPE_INTEGER, toolId);
+      DBBind(hStmt, 11, DB_SQLTYPE_INTEGER, toolId);
    }
 
    if (!DBExecute(hStmt))
@@ -1045,11 +1047,11 @@ bool ImportObjectTool(ConfigEntry *config, bool overwrite)
             {
                ConfigEntry *c = columns->get(i);
                DBBind(hStmt, 1, DB_SQLTYPE_INTEGER, toolId);
-               DBBind(hStmt, 2, DB_SQLTYPE_INTEGER, i);
+               DBBind(hStmt, 2, DB_SQLTYPE_INTEGER, (INT32)i);
                DBBind(hStmt, 3, DB_SQLTYPE_VARCHAR, c->getSubEntryValue(_T("name")), DB_BIND_STATIC);
                DBBind(hStmt, 4, DB_SQLTYPE_VARCHAR, c->getSubEntryValue(_T("oid")), DB_BIND_STATIC);
-               DBBind(hStmt, 5, DB_SQLTYPE_INTEGER, c->getSubEntryValueAsInt(_T("format")));
-               DBBind(hStmt, 6, DB_SQLTYPE_INTEGER, c->getSubEntryValueAsInt(_T("captureGroup")));
+               DBBind(hStmt, 5, DB_SQLTYPE_INTEGER, (INT32)c->getSubEntryValueAsInt(_T("format")));
+               DBBind(hStmt, 6, DB_SQLTYPE_INTEGER, (INT32)c->getSubEntryValueAsInt(_T("captureGroup")));
 
                if (!DBExecute(hStmt))
                   return ImportFailure(hdb, hStmt);
@@ -1181,7 +1183,7 @@ void CreateObjectToolExportRecord(StringBuffer &xml, UINT32 id)
 {
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
 
-   DB_STATEMENT hStmt = DBPrepare(hdb, _T("SELECT tool_name,guid,tool_type,tool_data,description,flags,tool_filter,confirmation_text,command_name,command_short_name,icon,remote_port FROM object_tools WHERE tool_id=?"));
+   DB_STATEMENT hStmt = DBPrepare(hdb, _T("SELECT tool_name,guid,tool_type,tool_data,description,flags,tool_filter,confirmation_text,command_name,command_short_name,icon FROM object_tools WHERE tool_id=?"));
    if (hStmt == nullptr)
    {
       DBConnectionPoolReleaseConnection(hdb);
@@ -1218,9 +1220,7 @@ void CreateObjectToolExportRecord(StringBuffer &xml, UINT32 id)
          xml.appendPreallocated(DBGetFieldForXML(hResult, 0, 9));
          xml.append(_T("</commandShortName>\n\t\t\t<image>"));
          xml.appendPreallocated(DBGetFieldForXML(hResult, 0, 10));
-         xml.append(_T("</image>\n\t\t\t<remotePort>"));
-         xml.append(DBGetFieldLong(hResult, 0, 11));
-         xml.append(_T("</remotePort>\n"));
+         xml.append(_T("</image>\n"));
          CreateObjectToolColumnExportRecords(hdb, xml, id);
          CreateObjectToolInputFieldExportRecords(hdb, xml, id);
          xml.append(_T("\t\t</objectTool>\n"));
@@ -1249,7 +1249,7 @@ static bool LoadInputFieldDefinitions(uint32_t toolId, DB_HANDLE hdb, NXCPMessag
    {
       int count = DBGetNumRows(hResult);
       msg->setField(countFieldId, (UINT16)count);
-      uint32_t fieldId = baseFieldId;
+      UINT32 fieldId = baseFieldId;
       for(int i = 0; i < count; i++)
       {
          TCHAR buffer[128];
@@ -1282,7 +1282,7 @@ static bool LoadInputFieldDefinitions(uint32_t toolId, DB_HANDLE hdb, NXCPMessag
 /**
  * Get all object tools available for given user into NXCP message
  */
-uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullAccess)
+UINT32 GetObjectToolsIntoMessage(NXCPMessage *msg, UINT32 userId, bool fullAccess)
 {
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
    DB_RESULT hResult = DBSelect(hdb, _T("SELECT tool_id,user_id FROM object_tools_acl"));
@@ -1293,7 +1293,7 @@ uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullA
    }
 
    int aclSize = DBGetNumRows(hResult);
-   Buffer<OBJECT_TOOL_ACL> acl(aclSize);
+   OBJECT_TOOL_ACL *acl = (OBJECT_TOOL_ACL *)malloc(aclSize * sizeof(OBJECT_TOOL_ACL));
    for(int i = 0; i < aclSize; i++)
    {
       acl[i].toolId = DBGetFieldULong(hResult, i, 0);
@@ -1301,19 +1301,20 @@ uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullA
    }
    DBFreeResult(hResult);
 
-   hResult = DBSelect(hdb, _T("SELECT tool_id,tool_name,tool_type,tool_data,flags,description,tool_filter,confirmation_text,command_name,command_short_name,icon,remote_port FROM object_tools"));
+   hResult = DBSelect(hdb, _T("SELECT tool_id,tool_name,tool_type,tool_data,flags,description,tool_filter,confirmation_text,command_name,command_short_name,icon FROM object_tools"));
    if (hResult == nullptr)
    {
       DBConnectionPoolReleaseConnection(hdb);
+      free(acl);
       return RCC_DB_FAILURE;
    }
 
-   uint32_t recordCount = 0;
-   uint32_t fieldId = VID_OBJECT_TOOLS_BASE;
+   UINT32 recordCount = 0;
+   UINT32 fieldId = VID_OBJECT_TOOLS_BASE;
    int count = DBGetNumRows(hResult);
    for(int i = 0; i < count; i++)
    {
-      uint32_t toolId = DBGetFieldULong(hResult, i, 0);
+      UINT32 toolId = DBGetFieldULong(hResult, i, 0);
       bool hasAccess = fullAccess;
       if (!fullAccess)
       {
@@ -1347,7 +1348,7 @@ uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullA
          // data
          TCHAR *data = DBGetField(hResult, i, 3, nullptr, 0);
          msg->setField(fieldId + 3, data);
-         MemFree(data);
+         free(data);
 
          msg->setField(fieldId + 4, DBGetFieldULong(hResult, i, 4));
 
@@ -1376,19 +1377,18 @@ uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullA
          if (imageDataHex != nullptr)
          {
             size_t size = _tcslen(imageDataHex) / 2;
-            Buffer<BYTE, 4096> imageData(size);
+            BYTE *imageData = (BYTE *)malloc(size);
             size_t bytes = StrToBin(imageDataHex, imageData, size);
-            msg->setField(fieldId + 10, imageData, bytes);
-            MemFree(imageDataHex);
+            msg->setField(fieldId + 10, imageData, (UINT32)bytes);
+            free(imageData);
+            free(imageDataHex);
          }
          else
          {
             msg->setField(fieldId + 10, (BYTE *)nullptr, 0);
          }
 
-         msg->setField(fieldId + 11, DBGetFieldULong(hResult, i, 11));
-
-         LoadInputFieldDefinitions(toolId, hdb, msg, fieldId + 19, fieldId + 20);
+         LoadInputFieldDefinitions(toolId, hdb, msg, fieldId + 11, fieldId + 20);
 
          recordCount++;
          fieldId += 10000;
@@ -1397,6 +1397,7 @@ uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullA
    msg->setField(VID_NUM_TOOLS, recordCount);
 
    DBFreeResult(hResult);
+   free(acl);
 
    DBConnectionPoolReleaseConnection(hdb);
    return RCC_SUCCESS;
@@ -1405,16 +1406,16 @@ uint32_t GetObjectToolsIntoMessage(NXCPMessage *msg, uint32_t userId, bool fullA
 /**
  * Get object tool details into NXCP message
  */
-uint32_t GetObjectToolDetailsIntoMessage(uint32_t toolId, NXCPMessage *msg)
+UINT32 GetObjectToolDetailsIntoMessage(UINT32 toolId, NXCPMessage *msg)
 {
-   uint32_t rcc = RCC_DB_FAILURE;
+   UINT32 rcc = RCC_DB_FAILURE;
    DB_RESULT hResult = nullptr;
    TCHAR buffer[MAX_DB_STRING], *data;
    int aclSize, toolType;
 
    DB_HANDLE hdb = DBConnectionPoolAcquireConnection();
 
-   DB_STATEMENT hStmt = DBPrepare(hdb, _T("SELECT tool_name,tool_type,tool_data,description,flags,tool_filter,confirmation_text,command_name,command_short_name,icon,remote_port FROM object_tools WHERE tool_id=?"));
+   DB_STATEMENT hStmt = DBPrepare(hdb, _T("SELECT tool_name,tool_type,tool_data,description,flags,tool_filter,confirmation_text,command_name,command_short_name,icon FROM object_tools WHERE tool_id=?"));
    if (hStmt == nullptr)
       goto cleanup;
 
@@ -1456,17 +1457,16 @@ uint32_t GetObjectToolDetailsIntoMessage(uint32_t toolId, NXCPMessage *msg)
    if (data != nullptr)
    {
       size_t size = _tcslen(data) / 2;
-      Buffer<BYTE, 4096> imageData(size);
+      BYTE *imageData = (BYTE *)malloc(size);
       size_t bytes = StrToBin(data, imageData, size);
-      msg->setField(VID_IMAGE_DATA, imageData, bytes);
-      MemFree(data);
+      msg->setField(VID_IMAGE_DATA, imageData, (UINT32)bytes);
+      free(imageData);
+      free(data);
    }
    else
    {
       msg->setField(VID_IMAGE_DATA, (BYTE *)nullptr, 0);
    }
-
-   msg->setField(VID_PORT, DBGetFieldULong(hResult, 0, 10));
 
    DBFreeResult(hResult);
    hResult = nullptr;
@@ -1486,10 +1486,11 @@ uint32_t GetObjectToolDetailsIntoMessage(uint32_t toolId, NXCPMessage *msg)
    msg->setField(VID_ACL_SIZE, (UINT32)aclSize);
    if (aclSize > 0)
    {
-      Buffer<uint32_t, 256> acl(aclSize);
+      UINT32 *acl = (UINT32 *)malloc(sizeof(UINT32) * aclSize);
       for(int i = 0; i < aclSize; i++)
          acl[i] = DBGetFieldULong(hResult, i, 0);
       msg->setFieldFromInt32Array(VID_ACL, aclSize, acl);
+      free(acl);
    }
    DBFreeResult(hResult);
    hResult = nullptr;
@@ -1498,7 +1499,9 @@ uint32_t GetObjectToolDetailsIntoMessage(uint32_t toolId, NXCPMessage *msg)
    if ((toolType == TOOL_TYPE_SNMP_TABLE) || (toolType == TOOL_TYPE_AGENT_LIST))
    {
       DBFreeStatement(hStmt);
-      hStmt = DBPrepare(hdb, _T("SELECT col_name,col_oid,col_format,col_substr FROM object_tools_table_columns WHERE tool_id=? ORDER BY col_number"));
+      hStmt = DBPrepare(hdb, _T("SELECT col_name,col_oid,col_format,col_substr ")
+                             _T("FROM object_tools_table_columns WHERE tool_id=? ")
+                             _T("ORDER BY col_number"));
       if (hStmt == nullptr)
          goto cleanup;
       DBBind(hStmt, 1, DB_SQLTYPE_INTEGER, toolId);
@@ -1509,7 +1512,7 @@ uint32_t GetObjectToolDetailsIntoMessage(uint32_t toolId, NXCPMessage *msg)
 
       int count = DBGetNumRows(hResult);
       msg->setField(VID_NUM_COLUMNS, (INT16)count);
-      uint32_t fieldId = VID_COLUMN_INFO_BASE;
+      UINT32 fieldId = VID_COLUMN_INFO_BASE;
       for(int i = 0; i < count; i++)
       {
          DBGetField(hResult, i, 0, buffer, MAX_DB_STRING);
@@ -1617,11 +1620,11 @@ void ServerCommandExecutor::onOutput(const char *text, size_t length)
 #ifdef UNICODE
    TCHAR *buffer = WideStringFromMBStringSysLocale(text);
    msg.setField(VID_MESSAGE, buffer);
-   m_session->sendMessage(msg);
+   m_session->sendMessage(&msg);
    MemFree(buffer);
 #else
    msg.setField(VID_MESSAGE, text);
-   m_session->sendMessage(msg);
+   m_session->sendMessage(&msg);
 #endif
 }
 
@@ -1632,6 +1635,6 @@ void ServerCommandExecutor::endOfOutput()
 {
    NXCPMessage msg(CMD_COMMAND_OUTPUT, m_requestId);
    msg.setEndOfSequence();
-   m_session->sendMessage(msg);
+   m_session->sendMessage(&msg);
    m_session->unregisterServerCommand(getId());
 }

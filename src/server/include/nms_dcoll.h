@@ -494,7 +494,7 @@ protected:
 
    bool transform(ItemValue &value, time_t nElapsedTime);
    void checkThresholds(ItemValue &value);
-   void updateCacheSizeInternal(bool allowLoad);
+   void updateCacheSizeInternal(bool allowLoad, uint32_t conditionId = 0);
    void clearCache();
 
    bool hasScriptThresholds() const;
@@ -526,7 +526,7 @@ public:
    virtual bool loadThresholdsFromDB(DB_HANDLE hdb) override;
    virtual void loadCache() override;
 
-   void updateCacheSize() { lock(); updateCacheSizeInternal(true); unlock(); }
+   void updateCacheSize(uint32_t conditionId = 0) { lock(); updateCacheSizeInternal(true, conditionId); unlock(); }
    void reloadCache(bool forceReload);
 
    int getDataType() const { return m_dataType; }
@@ -922,8 +922,9 @@ public:
  * Functions
  */
 void InitDataCollector();
-void WriteFullParamListToMessage(NXCPMessage *msg, int origin, uint16_t flags);
-int GetDCObjectType(uint32_t nodeId, uint32_t dciId);
+void DeleteAllItemsForNode(UINT32 dwNodeId);
+void WriteFullParamListToMessage(NXCPMessage *pMsg, int origin, WORD flags);
+int GetDCObjectType(UINT32 nodeId, UINT32 dciId);
 
 void CalculateItemValueDiff(ItemValue *result, int dataType, const ItemValue &value1, const ItemValue &value2);
 void CalculateItemValueAverage(ItemValue *result, int dataType, const ItemValue * const *valueList, size_t sampleCount);

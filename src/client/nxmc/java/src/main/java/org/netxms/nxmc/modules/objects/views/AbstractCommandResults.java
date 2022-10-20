@@ -42,14 +42,14 @@ import org.xnap.commons.i18n.I18n;
 /**
  * Abstract view to display command execution results
  */
-public abstract class AbstractCommandResultView extends ObjectToolResultView
+public abstract class AbstractCommandResults extends ObjectToolResults
 {
-   private static I18n i18n = LocalizationHelper.getI18n(AbstractCommandResultView.class);
+   private static I18n i18n = LocalizationHelper.getI18n(AbstractCommandResults.class);
 
    protected String executionString;
    protected Map<String, String> inputValues;
    protected List<String> maskedFields;
-
+   
 	protected TextConsole console;
 
 	private Action actionClear;
@@ -66,16 +66,16 @@ public abstract class AbstractCommandResultView extends ObjectToolResultView
 	 * @param nodeId
 	 * @param toolId
 	 */
-	public AbstractCommandResultView(ObjectContext node, ObjectTool tool, final Map<String, String> inputValues, final List<String> maskedFields) 
+	public AbstractCommandResults(ObjectContext node, ObjectTool tool, final Map<String, String> inputValues, final List<String> maskedFields) 
 	{
-      super(node, tool, ResourceManager.getImageDescriptor("icons/object-tools/terminal.png"), false);
+	   super(node, tool, ResourceManager.getImageDescriptor("icons/object-tools/console.png"), false);
       this.inputValues = inputValues;
       this.maskedFields = maskedFields;
       this.executionString = tool.getData();
 	}
-
-   /**
-    * @see org.netxms.nxmc.base.views.View#createContent(org.eclipse.swt.widgets.Composite)
+   
+   /* (non-Javadoc)
+    * @see org.eclipse.ui.part.WorkbenchPart#createPartControl(org.eclipse.swt.widgets.Composite)
     */
    @Override
    protected void createContent(Composite parent)

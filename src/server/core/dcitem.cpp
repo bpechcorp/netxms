@@ -1088,8 +1088,11 @@ void DCItem::changeBinding(UINT32 newId, shared_ptr<DataCollectionOwner> newOwne
 
 /**
  * Update required cache size depending on thresholds
+ * conditionId is an identifier of calling condition object id. If it is not 0,
+ * GetCacheSizeForDCI should be called with bNoLock == TRUE for appropriate
+ * condition object
  */
-void DCItem::updateCacheSizeInternal(bool allowLoad)
+void DCItem::updateCacheSizeInternal(bool allowLoad, uint32_t conditionId)
 {
    auto owner = m_owner.lock();
 
@@ -1117,7 +1120,7 @@ void DCItem::updateCacheSizeInternal(bool allowLoad)
 		for(int i = 0; i < conditions->size(); i++)
       {
 		   ConditionObject *c = static_cast<ConditionObject*>(conditions->get(i));
-			uint32_t size = c->getCacheSizeForDCI(m_id);
+			uint32_t size = c->getCacheSizeForDCI(m_id, conditionId == c->getId());
          if (size > requiredSize)
             requiredSize = size;
       }
@@ -1737,7 +1740,7 @@ bool DCItem::deleteEntry(time_t timestamp)
       return false;
 
    lock();
-   for(uint32_t i = 0; i < m_cacheSize; i++)
+   for(UINT32 i = 0; i < m_cacheSize; i++)
    {
       if (m_ppValueCache[i]->getTimeStamp() == timestamp)
       {

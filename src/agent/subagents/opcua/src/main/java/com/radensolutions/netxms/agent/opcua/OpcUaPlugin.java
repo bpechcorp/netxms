@@ -49,7 +49,9 @@ public class OpcUaPlugin extends Plugin
       super(config);
    }
 
-   /**
+   /*
+    * (non-Javadoc)
+    * 
     * @see org.netxms.agent.Plugin#getName()
     */
    @Override
@@ -58,7 +60,9 @@ public class OpcUaPlugin extends Plugin
       return "OPCUA";
    }
 
-   /**
+   /*
+    * (non-Javadoc)
+    * 
     * @see org.netxms.agent.Plugin#getVersion()
     */
    @Override
@@ -67,7 +71,7 @@ public class OpcUaPlugin extends Plugin
       return "1.0";
    }
 
-   /**
+   /* (non-Javadoc)
     * @see org.netxms.agent.Plugin#init(org.netxms.agent.Config)
     */
    @Override
@@ -102,7 +106,7 @@ public class OpcUaPlugin extends Plugin
       String[] parts = config.split(":", 2);
       if (parts.length != 2)
          throw new PluginInitException("Invalid server configuration entry \"" + config + "\"");
-
+      
       ServerConnection s;
       if (parts[1].contains("@"))
       {
@@ -129,7 +133,7 @@ public class OpcUaPlugin extends Plugin
       servers.put(s.getName(), s);
       Platform.writeDebugLog(3, "OPCUA: added server connection " + s.getName() + " (" + s.getUrl() + ")");
    }
-
+   
    /**
     * Get server by name
     * 
@@ -142,8 +146,8 @@ public class OpcUaPlugin extends Plugin
          return null;
       return servers.get(name);
    }
-
-   /**
+   
+   /* (non-Javadoc)
     * @see org.netxms.agent.Plugin#getParameters()
     */
    @Override

@@ -18,6 +18,7 @@
  */
 package org.netxms.ui.eclipse.alarmviewer.widgets;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -67,6 +68,7 @@ import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.browser.IWebBrowser;
 import org.netxms.client.NXCSession;
 import org.netxms.client.SessionListener;
 import org.netxms.client.SessionNotification;
@@ -96,7 +98,6 @@ import org.netxms.ui.eclipse.console.resources.SharedIcons;
 import org.netxms.ui.eclipse.jobs.ConsoleJob;
 import org.netxms.ui.eclipse.objectview.views.TabbedObjectView;
 import org.netxms.ui.eclipse.shared.ConsoleSharedData;
-import org.netxms.ui.eclipse.tools.ExternalWebBrowser;
 import org.netxms.ui.eclipse.tools.FilteringMenuManager;
 import org.netxms.ui.eclipse.tools.MessageDialogHelper;
 import org.netxms.ui.eclipse.tools.RefreshTimer;
@@ -1352,7 +1353,16 @@ public class AlarmList extends CompositeWithMessageBar
                @Override
                public void run()
                {
-                  ExternalWebBrowser.open(url);
+                  try
+                  {
+                     final IWebBrowser browser = PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser();
+                     browser.openURL(new URL(url));
+                  }
+                  catch(Exception e)
+                  {
+                     Activator.logError("Exception in AlarmList.showIssue (url=\"" + url + "\")", e); //$NON-NLS-1$ //$NON-NLS-2$
+                     MessageDialogHelper.openError(getShell(), Messages.get().AlarmList_Error, Messages.get().AlarmList_InternalError);
+                  }
                }
             });
          }

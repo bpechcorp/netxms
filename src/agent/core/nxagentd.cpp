@@ -1983,7 +1983,6 @@ int main(int argc, char *argv[])
    HKEY hKey;
    DWORD dwSize;
    ProcessExecutor *crashServer = nullptr;
-   google_breakpad::ExceptionHandler *exceptionHandler = nullptr;
 #else
    TCHAR *pszEnv;
 	int uid = 0, gid = 0;
@@ -2382,15 +2381,7 @@ int main(int argc, char *argv[])
                   Sleep(200);
                   timeout -= 200;
                }
-               if (success)
-               {
-                  static google_breakpad::CustomInfoEntry clientInfoEntries[] = { { L"ProcessName", L"nxagentd" } };
-                  static google_breakpad::CustomClientInfo clientInfo = { clientInfoEntries, 1 };
-                  exceptionHandler = new google_breakpad::ExceptionHandler(s_dumpDirectory, nullptr, nullptr, nullptr, google_breakpad::ExceptionHandler::HANDLER_ALL,
-                     static_cast<MINIDUMP_TYPE>(((s_startupFlags & SF_WRITE_FULL_DUMP) ? MiniDumpWithFullMemory : MiniDumpNormal) | MiniDumpWithHandleData | MiniDumpWithProcessThreadData),
-                     pipeName, &clientInfo);
-               }
-               else
+               if (!success)
                {
                   g_failFlags |= FAIL_CRASH_SERVER_START;
                   delete_and_null(crashServer);
@@ -2636,7 +2627,6 @@ int main(int argc, char *argv[])
    }
 
 #ifdef _WIN32
-   delete exceptionHandler;
    delete crashServer;
 #endif
 

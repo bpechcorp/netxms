@@ -18,7 +18,6 @@
  */
 package org.netxms.ui.eclipse.objecttools.api;
 
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,6 +48,7 @@ import org.netxms.ui.eclipse.objectbrowser.dialogs.InputFieldEntryDialog;
 import org.netxms.ui.eclipse.objects.ObjectContext;
 import org.netxms.ui.eclipse.objecttools.Activator;
 import org.netxms.ui.eclipse.objecttools.Messages;
+import org.netxms.ui.eclipse.objecttools.TcpPortForwarder;
 import org.netxms.ui.eclipse.objecttools.dialogs.ToolExecutionStatusDialog;
 import org.netxms.ui.eclipse.objecttools.views.AgentActionResults;
 import org.netxms.ui.eclipse.objecttools.views.LocalCommandResults;
@@ -58,8 +58,8 @@ import org.netxms.ui.eclipse.objecttools.views.ServerCommandResults;
 import org.netxms.ui.eclipse.objecttools.views.ServerScriptResults;
 import org.netxms.ui.eclipse.objecttools.views.TableToolResults;
 import org.netxms.ui.eclipse.shared.ConsoleSharedData;
+import org.netxms.ui.eclipse.tools.ExternalWebBrowser;
 import org.netxms.ui.eclipse.tools.MessageDialogHelper;
-import org.netxms.ui.eclipse.views.BrowserView;
 
 /**
  * Executor for object tool
@@ -390,7 +390,7 @@ public final class ObjectToolExecutor
             executeTableTool(node, tool);
             break;
          case ObjectTool.TYPE_URL:
-            openURL(node, tool, inputValues, expandedToolData);
+            openURL(node, tool, expandedToolData);
             break;
       }
    }
@@ -404,8 +404,7 @@ public final class ObjectToolExecutor
     * @param maskedFields list of input fields to be masked
     * @param expandedToolData expanded tool data
     */
-   private static void executeOnMultipleNodes(Set<ObjectContext> nodes, ObjectTool tool, Map<String, String> inputValues,
-         List<String> maskedFields, List<String> expandedToolData)
+   private static void executeOnMultipleNodes(Set<ObjectContext> nodes, ObjectTool tool, Map<String, String> inputValues, List<String> maskedFields, List<String> expandedToolData)
    {
       final IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
       try
@@ -737,33 +736,60 @@ public final class ObjectToolExecutor
     * @param inputValues input values
     * @param command command to execute
     */
-   private static void executeLocalCommand(final ObjectContext node, final ObjectTool tool, Map<String, String> inputValues, String command)
+   private static void executeLocalCommand(final ObjectContext node, final ObjectTool tool, Map<String, String> inputValues, final String command)
    {      
       if ((tool.getFlags() & ObjectTool.GENERATES_OUTPUT) == 0)
       {
-         final String os = Platform.getOS();
-         
-         try
-         {
-            if (os.equals(Platform.OS_WIN32))
+         ConsoleJob job = new ConsoleJob("Execute external command", null, Activator.PLUGIN_ID) {
+            @Override
+            protected void runInternal(IProgressMonitor monitor) throws Exception
             {
-               command = "CMD.EXE /C START \"NetXMS\" " + command; //$NON-NLS-1$
-               Runtime.getRuntime().exec(command);
+               TcpPortForwarder tcpPortForwarder = null;
+               try
+               {
+                  String commandLine = command;
+                  if (node.isNode() && ((tool.getFlags() & ObjectTool.SETUP_TCP_TUNNEL) != 0))
+                  {
+                     tcpPortForwarder = new TcpPortForwarder(ConsoleSharedData.getSession(), node.object.getObjectId(), tool.getRemotePort(), 0);
+                     tcpPortForwarder.setDisplay(getDisplay());
+                     tcpPortForwarder.run();
+                     commandLine = commandLine.replace("${local-port}", Integer.toString(tcpPortForwarder.getLocalPort()));
+                  }
+
+                  Process process;
+                  if (Platform.getOS().equals(Platform.OS_WIN32))
+                  {
+                     commandLine = "CMD.EXE /C START \"NetXMS\" " + commandLine; //$NON-NLS-1$
+                     process = Runtime.getRuntime().exec(command);
+                  }
+                  else
+                  {
+                     process = Runtime.getRuntime().exec(new String[] { "/bin/sh", "-c", commandLine }); //$NON-NLS-1$ //$NON-NLS-2$
+                  }
+
+                  if (tcpPortForwarder != null)
+                     process.waitFor();
+               }
+               finally
+               {
+                  if (tcpPortForwarder != null)
+                     tcpPortForwarder.close();
+               }
             }
-            else
+
+            @Override
+            protected String getErrorMessage()
             {
-               Runtime.getRuntime().exec(new String[] { "/bin/sh", "-c", command }); //$NON-NLS-1$ //$NON-NLS-2$
+               return "Cannot execute external process";
             }
-         }
-         catch(IOException e)
-         {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-         }
+         };
+         job.setUser(false);
+         job.start();
       }
       else
       {
-         final String secondaryId = Long.toString(node.object.getObjectId()) + "&" + Long.toString(tool.getId()); //$NON-NLS-1$
+         final String secondaryId = Long.toString(node.object.getObjectId()) + "&" + Long.toString(tool.getId()) + "&" + //$NON-NLS-1$ //$NON-NLS-2$
+               ((node.isNode() && ((tool.getFlags() & ObjectTool.SETUP_TCP_TUNNEL) != 0) ? tool.getRemotePort() : 0));
          final IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
          try
          {
@@ -784,7 +810,7 @@ public final class ObjectToolExecutor
     */
    private static void executeFileDownload(final ObjectContext node, final ObjectTool tool, final Map<String, String> inputValues)
    {
-      final NXCSession session = (NXCSession)ConsoleSharedData.getSession();
+      final NXCSession session = ConsoleSharedData.getSession();
       String[] parameters = tool.getData().split("\u007F"); //$NON-NLS-1$
       
       final String fileName = parameters[0];
@@ -858,18 +884,36 @@ public final class ObjectToolExecutor
     * @param tool
     * @param inputValues 
     */
-   private static void openURL(final ObjectContext node, final ObjectTool tool, Map<String, String> inputValues, String url)
+   private static void openURL(final ObjectContext node, final ObjectTool tool, final String url)
    {
-      final String sid = Long.toString(node.object.getObjectId()) + "&" + Long.toString(tool.getId()); //$NON-NLS-1$
-      final IWorkbenchWindow window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
-      try
+      if (node.isNode() && ((tool.getFlags() & ObjectTool.SETUP_TCP_TUNNEL) != 0))
       {
-         BrowserView view = (BrowserView)window.getActivePage().showView(BrowserView.ID, sid, IWorkbenchPage.VIEW_ACTIVATE);
-         view.openUrl(url);
+         final NXCSession session = ConsoleSharedData.getSession();
+         ConsoleJob job = new ConsoleJob("Setup TCP port forwarding", null, Activator.PLUGIN_ID) {
+            @Override
+            protected void runInternal(IProgressMonitor monitor) throws Exception
+            {
+               TcpPortForwarder tcpPortForwarder = new TcpPortForwarder(session, node.object.getObjectId(), tool.getRemotePort(), 600000); // Close underlying proxy after 10 minutes of inactivity
+               tcpPortForwarder.setDisplay(getDisplay());
+               tcpPortForwarder.run();
+               final String realUrl = url.replace("${local-address}", "127.0.0.1").replace("${local-port}", Integer.toString(tcpPortForwarder.getLocalPort()));
+               runInUIThread(() -> {
+                  ExternalWebBrowser.open(realUrl);
+               });
+            }
+
+            @Override
+            protected String getErrorMessage()
+            {
+               return "Cannot setup TCP port forwarding";
+            }
+         };
+         job.setUser(false);
+         job.start();
       }
-      catch(PartInitException e)
+      else
       {
-         MessageDialogHelper.openError(window.getShell(), Messages.get().ObjectToolsDynamicMenu_Error, Messages.get().ObjectToolsDynamicMenu_CannotOpenWebBrowser + e.getLocalizedMessage());
+         ExternalWebBrowser.open(url);
       }
    }
 }

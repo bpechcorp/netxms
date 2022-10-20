@@ -104,7 +104,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;libcrypto.lib;libssl.lib;crypt32.lib;dbghelp.lib;psapi.lib;rpcrt4.lib;iphlpapi.lib;wintrust.lib;libcurl.lib;pcre.lib;pcre16.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ws2_32.lib;..\..\sdk\openssl\lib\x86\libcrypto.lib;..\..\sdk\openssl\lib\x86\libssl.lib;crypt32.lib;dbghelp.lib;psapi.lib;rpcrt4.lib;iphlpapi.lib;wintrust.lib;libcurl.lib;pcre.lib;pcre16.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>

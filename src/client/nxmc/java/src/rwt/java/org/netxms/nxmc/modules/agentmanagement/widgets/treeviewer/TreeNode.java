@@ -8,10 +8,12 @@ public class TreeNode {
 	private String value;
 	private List<TreeNode> children = new ArrayList<>();
 	private TreeNode parent;
+	private boolean isLeaf;
 
 	public TreeNode(String inputName, String inputValue) {
 		name = inputName;
 		value = inputValue;
+		isLeaf = true;
 	}
 
 	protected TreeNode getParent() {
@@ -21,11 +23,20 @@ public class TreeNode {
 	public TreeNode addChild(TreeNode child) {
 		children.add(child);
 		child.parent = this;
+		isLeaf = false;
 		return this;
 	}
 
 	public List<TreeNode> getChildren() {
 		return children;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	public String getValue() {
@@ -38,5 +49,9 @@ public class TreeNode {
 
 	public String toString() {
 		return name;
+	}
+
+	public boolean isLeaf() {
+		return isLeaf;
 	}
 }

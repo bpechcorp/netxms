@@ -10,33 +10,60 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IMenuListener;
+import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.viewers.CellLabelProvider;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.ITreeViewerListener;
+import org.eclipse.jface.viewers.TreeExpansionEvent;
 import org.eclipse.jface.viewers.TreeViewer;
+import org.eclipse.jface.viewers.TreeViewerColumn;
+import org.eclipse.jface.viewers.ViewerCell;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.graphics.Rectangle;
-import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Tree;
+import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.Text;
+import org.netxms.nxmc.localization.LocalizationHelper;
 import org.netxms.nxmc.modules.agentmanagement.widgets.treeviewer.TreeContentProvider;
 import org.netxms.nxmc.modules.agentmanagement.widgets.treeviewer.TreeNode;
+import org.netxms.nxmc.resources.SharedIcons;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xnap.commons.i18n.I18n;
 
 public class AgentConfigXmlEditor extends Composite {
-	TreeViewer treeViewer;
-	TreeNode treeNode;
-	Display display;
+
+	private I18n i18n = LocalizationHelper.getI18n(AgentConfigXmlEditor.class);
+	private TreeViewer treeViewer;
+	private TreeNode treeNode;
+
+	private Action actionRename;
+	private Action actionChangeValue;
+	private Action actionAddNode;
+	private Action actionDeleteNode;
+
+	private Text filterText;
+	
+	private void TreeSearchAlgorith() {
+		// TODO Auto-generated method stub
+
+	}
 
 	public AgentConfigXmlEditor(Composite parent, int style, int editorStyle) {
 		super(parent, style);
-		display = parent.getDisplay();
-		setLayout(new FillLayout());
+		setLayout(new GridLayout());
+		createFilterText();
 		createTreeViewer(style);
+		createActions();
+		createContextMenu();
 	}
 
 	public void setContent(String content) {
@@ -97,33 +124,180 @@ public class AgentConfigXmlEditor extends Composite {
 		treeViewer.setInput(treeNode);
 	}
 
-	private void createTreeViewer(int style) {
-		final Image image = display.getSystemImage(SWT.ICON_INFORMATION);
-		treeViewer = new TreeViewer(this, style);
+	private void createContextMenu() {
+		MenuManager menuMgr = new MenuManager();
+		menuMgr.setRemoveAllWhenShown(true);
+		menuMgr.addMenuListener(new IMenuListener() {
 
-		Tree tree = treeViewer.getTree();
-		Listener paintListener = new Listener() {
-			public void handleEvent(Event event) {
-				switch (event.type) {
-				case SWT.MeasureItem: {
-					Rectangle rect = image.getBounds();
-					event.width += rect.width;
-					event.height = Math.max(event.height, rect.height + 2);
-					break;
-				}
-				case SWT.PaintItem: {
-					int x = event.x + event.width;
-					Rectangle rect = image.getBounds();
-					int offset = Math.max(0, (event.height - rect.height) / 2);
-					event.gc.drawImage(image, x, event.y + offset);
-					break;
-				}
-				}
+			private static final long serialVersionUID = -6868735989779702531L;
+
+			public void menuAboutToShow(IMenuManager mgr) {
+				fillContextMenu(mgr);
+			}
+		});
+
+		Menu menu = menuMgr.createContextMenu(treeViewer.getControl());
+		treeViewer.getControl().setMenu(menu);
+	}
+
+	private void createActions() {
+		actionRename = new Action(i18n.tr("Rename"), SharedIcons.EDIT) {
+
+			private static final long serialVersionUID = 8490478296254079716L;
+
+			@Override
+			public void run() {
 			}
 		};
-		tree.addListener(SWT.MeasureItem, paintListener);
-		tree.addListener(SWT.PaintItem, paintListener);
+		actionRename.setId("AgentConfigXmlEditor.rename");
+
+		actionChangeValue = new Action(i18n.tr("Change value"), SharedIcons.SAVE) {
+
+			private static final long serialVersionUID = -5491629062808525113L;
+
+			@Override
+			public void run() {
+			}
+		};
+		actionChangeValue.setId("AgentConfigXmlEditor.changeValue");
+
+		actionAddNode = new Action(i18n.tr("Add new node"), SharedIcons.ADD_OBJECT) {
+
+			private static final long serialVersionUID = 8540983913564599102L;
+
+			@Override
+			public void run() {
+			}
+		};
+		actionAddNode.setId("AgentConfigXmlEditor.addNode");
+
+		actionDeleteNode = new Action(i18n.tr("Delete"), SharedIcons.DELETE_OBJECT) {
+
+			private static final long serialVersionUID = -6513734773438689108L;
+
+			@Override
+			public void run() {
+			}
+		};
+		actionDeleteNode.setId("AgentConfigXmlEditor.deleteNode");
+	}
+
+	private void fillContextMenu(IMenuManager manager) {
+		IStructuredSelection selection = treeViewer.getStructuredSelection();
+		if (selection.isEmpty())
+			return;
+
+		Object element = selection.getFirstElement();
+		if (!(element instanceof TreeNode)) {
+			return;
+		}
+		TreeNode treeNode = (TreeNode) element;
+		if (treeNode.isLeaf()) {
+			manager.add(actionRename);
+			manager.add(actionChangeValue);
+			manager.add(actionDeleteNode);
+		} else {
+			manager.add(actionAddNode);
+			if (!"Core".equals(treeNode.getName())) {
+				manager.add(actionRename);
+			}
+			manager.add(actionChangeValue);
+			manager.add(actionDeleteNode);
+		}
+	}
+
+	private void createTreeViewer(int style) {
+		Composite treeViewerArea = new Composite(this, SWT.BORDER);
+
+		GridLayout treeViewerLayout = new GridLayout();
+		treeViewerLayout.numColumns = 1;
+		treeViewerLayout.marginBottom = 0;
+		treeViewerLayout.marginTop = 0;
+		treeViewerLayout.marginLeft = 0;
+		treeViewerLayout.marginRight = 0;
+		treeViewerArea.setLayout(treeViewerLayout);
+		treeViewerArea.setLayoutData(new GridData(GridData.FILL_BOTH));
+
+		treeViewer = new TreeViewer(treeViewerArea, style);
+		treeViewer.getTree().setLayoutData(new GridData(GridData.FILL_BOTH));
 		treeViewer.setContentProvider(new TreeContentProvider());
 
+		TreeViewerColumn keyColumn = new TreeViewerColumn(treeViewer, SWT.NONE);
+		keyColumn.getColumn().setText("Key");
+		keyColumn.getColumn().setWidth(600);
+		keyColumn.setLabelProvider(new CellLabelProvider() {
+
+			private static final long serialVersionUID = -7007983541265880812L;
+
+			@Override
+			public void update(ViewerCell cell) {
+				Object element = cell.getElement();
+				if (element instanceof TreeNode) {
+					TreeNode treeNode = (TreeNode) element;
+					cell.setText(treeNode.getName());
+				}
+			}
+		});
+
+		TreeViewerColumn valueColumn = new TreeViewerColumn(treeViewer, SWT.NONE);
+		valueColumn.getColumn().setText("Value");
+		valueColumn.setLabelProvider(new CellLabelProvider() {
+
+			private static final long serialVersionUID = -7007983541265880812L;
+
+			@Override
+			public void update(ViewerCell cell) {
+				Object element = cell.getElement();
+				if (element instanceof TreeNode) {
+					TreeNode treeNode = (TreeNode) element;
+					cell.setText(treeNode.getValue());
+				}
+			}
+		});
+
+		treeViewer.addTreeListener(new ITreeViewerListener() {
+
+			@Override
+			public void treeExpanded(TreeExpansionEvent event) {
+				keyColumn.getColumn().pack();
+				valueColumn.getColumn().pack();
+			}
+
+			@Override
+			public void treeCollapsed(TreeExpansionEvent event) {
+				keyColumn.getColumn().pack();
+				valueColumn.getColumn().pack();
+			}
+		});
+	}
+
+	private void createFilterText() {
+		Composite textArea = new Composite(this, SWT.BORDER);
+
+		GridLayout textLayout = new GridLayout();
+		textLayout.numColumns = 1;
+		textLayout.marginBottom = 0;
+		textLayout.marginTop = 0;
+		textLayout.marginLeft = 0;
+		textLayout.marginRight = 0;
+		textArea.setLayout(textLayout);
+
+		GridData gd = new GridData();
+		gd.horizontalAlignment = SWT.FILL;
+		gd.verticalAlignment = SWT.CENTER;
+		gd.grabExcessHorizontalSpace = true;
+		textArea.setLayoutData(gd);
+
+		filterText = new Text(textArea, SWT.SINGLE);
+		filterText.setTextLimit(64);
+		filterText.setMessage(i18n.tr("Filter is empty"));
+		filterText.setLayoutData(gd);
+		filterText.addListener(SWT.KeyDown, new Listener() {
+
+			@Override
+			public void handleEvent(Event event) {
+				System.out.print(filterText.getText());
+			}
+		});
 	}
 }

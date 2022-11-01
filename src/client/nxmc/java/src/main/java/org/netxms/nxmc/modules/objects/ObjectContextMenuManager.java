@@ -47,6 +47,7 @@ import org.netxms.nxmc.localization.LocalizationHelper;
 import org.netxms.nxmc.modules.agentmanagement.PackageDeployment;
 import org.netxms.nxmc.modules.agentmanagement.dialogs.SelectDeployPackage;
 import org.netxms.nxmc.modules.agentmanagement.views.AgentConfigEditorView;
+import org.netxms.nxmc.modules.agentmanagement.views.AgentConfigXmlEditorView;
 import org.netxms.nxmc.modules.agentmanagement.views.PackageDeploymentMonitor;
 import org.netxms.nxmc.modules.nxsl.views.ScriptExecutorView;
 import org.netxms.nxmc.modules.objects.dialogs.MaintanenceScheduleDialog;
@@ -75,6 +76,7 @@ public class ObjectContextMenuManager extends MenuManager
    private Action actionProperties;
    private Action actionTakeScreenshot;
    private Action actionEditAgentConfig;
+   private Action actionEditAgentXmlConfig;
    private Action actionExecuteScript;
 
    /**
@@ -174,13 +176,21 @@ public class ObjectContextMenuManager extends MenuManager
          }
       };
 
-      actionEditAgentConfig = new Action(i18n.tr("Edit agent configuration"), ResourceManager.getImageDescriptor("icons/object-views/agent-config.png")) {
+      actionEditAgentConfig = new Action(i18n.tr("Text editor")) {
          @Override
          public void run()
          {
             openAgentConfigEditor();
          }
       };
+
+      actionEditAgentXmlConfig = new Action(i18n.tr("XML editor")) {
+          @Override
+          public void run()
+          {
+        	  openAgentConfigXmlEditor();
+          }
+       };
 
       actionExecuteScript = new Action(i18n.tr("E&xecute script"), ResourceManager.getImageDescriptor("icons/object-views/script-executor.png")) {
          @Override
@@ -231,8 +241,12 @@ public class ObjectContextMenuManager extends MenuManager
          AbstractObject object = getObjectFromSelection();
          if ((object instanceof Node) && ((Node)object).hasAgent())
          {
-            add(actionEditAgentConfig);
-            add(actionDeployPackage);
+        	 MenuManager agentConfigEditorMenu = new MenuManager(i18n.tr("Edit agent configuration"), ResourceManager.getImageDescriptor("icons/object-views/agent-config.png"), null);
+        	 agentConfigEditorMenu.add(actionEditAgentConfig);
+        	 agentConfigEditorMenu.add(actionEditAgentXmlConfig);
+
+        	 add(agentConfigEditorMenu);
+        	 add(actionDeployPackage);
          }
       }
       else
@@ -598,6 +612,24 @@ public class ObjectContextMenuManager extends MenuManager
          window.open();
       }
    }
+
+   /**
+    * Open agent configuration XML editor
+    */
+	private void openAgentConfigXmlEditor() 
+	{
+		AbstractObject object = getObjectFromSelection();
+		if (!(object instanceof Node))
+			return;
+
+		AgentConfigXmlEditorView editor = new AgentConfigXmlEditorView((Node) object);
+		if (view.getPerspective() != null) {
+			view.getPerspective().addMainView(editor, true, false);
+		} else {
+			PopOutViewWindow window = new PopOutViewWindow(editor);
+			window.open();
+		}
+	}
 
    /**
     * Execute script on object

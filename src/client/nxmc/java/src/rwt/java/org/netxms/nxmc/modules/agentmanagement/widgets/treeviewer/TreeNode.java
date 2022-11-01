@@ -2,8 +2,10 @@ package org.netxms.nxmc.modules.agentmanagement.widgets.treeviewer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class TreeNode {
+	private String id;
 	private String name;
 	private String value;
 	private List<TreeNode> children = new ArrayList<>();
@@ -14,6 +16,7 @@ public class TreeNode {
 		name = inputName;
 		value = inputValue;
 		isLeaf = true;
+		id = UUID.randomUUID().toString();
 	}
 
 	protected TreeNode getParent() {
@@ -54,4 +57,13 @@ public class TreeNode {
 	public boolean isLeaf() {
 		return isLeaf;
 	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
 }

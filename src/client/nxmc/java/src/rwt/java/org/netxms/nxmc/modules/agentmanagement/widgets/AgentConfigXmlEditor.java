@@ -22,14 +22,15 @@ import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.TreeViewerColumn;
 import org.eclipse.jface.viewers.ViewerCell;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.ModifyEvent;
+import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.Text;
 import org.netxms.nxmc.localization.LocalizationHelper;
+import org.netxms.nxmc.modules.agentmanagement.widgets.treeviewer.NodeFilter;
 import org.netxms.nxmc.modules.agentmanagement.widgets.treeviewer.TreeContentProvider;
 import org.netxms.nxmc.modules.agentmanagement.widgets.treeviewer.TreeNode;
 import org.netxms.nxmc.resources.SharedIcons;
@@ -43,6 +44,10 @@ public class AgentConfigXmlEditor extends Composite {
 
 	private I18n i18n = LocalizationHelper.getI18n(AgentConfigXmlEditor.class);
 	private TreeViewer treeViewer;
+
+	TreeViewerColumn keyColumn;
+	TreeViewerColumn valueColumn;
+
 	private TreeNode treeNode;
 
 	private Action actionRename;
@@ -51,11 +56,7 @@ public class AgentConfigXmlEditor extends Composite {
 	private Action actionDeleteNode;
 
 	private Text filterText;
-	
-	private void TreeSearchAlgorith() {
-		// TODO Auto-generated method stub
-
-	}
+	private NodeFilter filter;
 
 	public AgentConfigXmlEditor(Composite parent, int style, int editorStyle) {
 		super(parent, style);
@@ -92,6 +93,7 @@ public class AgentConfigXmlEditor extends Composite {
 			if (currentNode.getNodeType() == Node.ELEMENT_NODE) {
 				TreeNode newNode = new TreeNode(currentNode.getNodeName(), currentNode.getTextContent());
 				treeNode.addChild(newNode);
+				filter.addSourceObject(newNode);
 				buildTreeNode(currentNode, newNode);
 			}
 		}
@@ -101,6 +103,7 @@ public class AgentConfigXmlEditor extends Composite {
 		treeNode = new TreeNode("root", "");
 		List<String> lines = Arrays.asList(content.split(System.getProperty("line.separator")));
 		TreeNode sectionNode = new TreeNode("Core", "");
+		filter.addSourceObject(sectionNode);
 		treeNode.addChild(sectionNode);
 		for (String line : lines) {
 			String str = StringUtils.trimToEmpty(line);
@@ -112,12 +115,14 @@ public class AgentConfigXmlEditor extends Composite {
 				if (matcher.find()) {
 					sectionNode = new TreeNode(matcher.group(1), "");
 					treeNode.addChild(sectionNode);
+					filter.addSourceObject(sectionNode);
 				}
 				continue;
 			}
 			Matcher matcher = Pattern.compile("^([^=]+)=(.+)$").matcher(str);
 			if (matcher.find()) {
 				TreeNode newNode = new TreeNode(matcher.group(1), matcher.group(2));
+				filter.addSourceObject(newNode);
 				sectionNode.addChild(newNode);
 			}
 		}
@@ -221,10 +226,12 @@ public class AgentConfigXmlEditor extends Composite {
 		treeViewer = new TreeViewer(treeViewerArea, style);
 		treeViewer.getTree().setLayoutData(new GridData(GridData.FILL_BOTH));
 		treeViewer.setContentProvider(new TreeContentProvider());
+		filter = new NodeFilter();
+		treeViewer.addFilter(filter);
 
 		TreeViewerColumn keyColumn = new TreeViewerColumn(treeViewer, SWT.NONE);
 		keyColumn.getColumn().setText("Key");
-		keyColumn.getColumn().setWidth(600);
+		keyColumn.getColumn().setWidth(300);
 		keyColumn.setLabelProvider(new CellLabelProvider() {
 
 			private static final long serialVersionUID = -7007983541265880812L;
@@ -241,6 +248,7 @@ public class AgentConfigXmlEditor extends Composite {
 
 		TreeViewerColumn valueColumn = new TreeViewerColumn(treeViewer, SWT.NONE);
 		valueColumn.getColumn().setText("Value");
+		valueColumn.getColumn().setWidth(300);
 		valueColumn.setLabelProvider(new CellLabelProvider() {
 
 			private static final long serialVersionUID = -7007983541265880812L;
@@ -259,16 +267,23 @@ public class AgentConfigXmlEditor extends Composite {
 
 			@Override
 			public void treeExpanded(TreeExpansionEvent event) {
-				keyColumn.getColumn().pack();
-				valueColumn.getColumn().pack();
+				resize();
 			}
 
 			@Override
 			public void treeCollapsed(TreeExpansionEvent event) {
-				keyColumn.getColumn().pack();
-				valueColumn.getColumn().pack();
+				resize();
 			}
 		});
+	}
+
+	private void resize() {
+		if (keyColumn != null && keyColumn.getColumn() != null) {
+			keyColumn.getColumn().pack();
+		}
+		if (valueColumn != null && valueColumn.getColumn() != null) {
+			valueColumn.getColumn().pack();
+		}
 	}
 
 	private void createFilterText() {
@@ -292,11 +307,14 @@ public class AgentConfigXmlEditor extends Composite {
 		filterText.setTextLimit(64);
 		filterText.setMessage(i18n.tr("Filter is empty"));
 		filterText.setLayoutData(gd);
-		filterText.addListener(SWT.KeyDown, new Listener() {
+		filterText.addModifyListener(new ModifyListener() {
 
 			@Override
-			public void handleEvent(Event event) {
-				System.out.print(filterText.getText());
+			public void modifyText(ModifyEvent e) {
+				String filterString = filterText.getText();
+				filter.search(filterString);
+				treeViewer.refresh();
+				treeViewer.expandAll();
 			}
 		});
 	}

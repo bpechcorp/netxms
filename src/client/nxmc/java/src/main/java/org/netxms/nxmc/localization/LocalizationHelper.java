@@ -42,6 +42,7 @@ public final class LocalizationHelper
     */
    public static I18n getI18n(Class<?> c)
    {
-      return I18nFactory.getI18n(c, Locale.getDefault(), I18nFactory.FALLBACK);
+      // return I18nFactory.getI18n(c, Locale.getDefault(), I18nFactory.FALLBACK);
+	   return I18nFactory.getI18n(c, "org.netxms.nxmc.localization.Messages_vi", Locale.getDefault());
    }
 }
